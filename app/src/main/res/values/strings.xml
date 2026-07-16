@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name">Variable Font Test</string>
+    <string name="app_name">Variable Font Test N</string>
     <string name="project_homepage" translatable="false">
         https://github.com/WordlessEcho/Variable-Font-Test
     </string>
