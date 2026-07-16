@@ -1,4 +1,4 @@
-package moe.echo.variablefonttest
+package moe.echo.variablefonttest_n
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("moe.echo.variablefonttest", appContext.packageName)
+        assertEquals("moe.echo.variablefonttest_n", appContext.packageName)
     }
 }

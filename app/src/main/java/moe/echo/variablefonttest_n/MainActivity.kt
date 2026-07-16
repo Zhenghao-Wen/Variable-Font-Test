@@ -1,4 +1,4 @@
-package moe.echo.variablefonttest
+package moe.echo.variablefonttest_n
 
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
