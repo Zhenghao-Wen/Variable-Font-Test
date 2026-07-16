@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "moe.echo.variablefonttest"
+    namespace = "moe.echo.variablefonttest.new"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "moe.echo.variablefonttest"
+        applicationId = "moe.echo.variablefonttest.new"
         minSdk = 21
         targetSdk = 35
         versionCode = 20
@@ -20,6 +20,15 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("KEYSTORE_FILE") ?: "/dev/null")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -27,6 +36,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
