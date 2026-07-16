@@ -1,22 +1,19 @@
 ```
-# Build artifacts
-build/
-dist/
-*.apk
-*.aar
-*.jar
+# Compiled and build artifacts
 *.class
+*.o
+*.obj
+*.out
+build/
+target/
 
 # Dependencies
 .gradle/
 node_modules/
-venv/
-.venv/
 
 # Logs and temp files
 *.log
 *.tmp
-*.swp
 
 # Environment
 .env
@@ -26,172 +23,56 @@ venv/
 # Editors
 .vscode/
 .idea/
-*.iml
-*.iws
-*.ipr
+*.swp
+*.swo
 
-# OS generated files
+# System files
 .DS_Store
 Thumbs.db
 
-# Java/Kotlin specific
+# Coverage reports
+coverage/
+htmlcov/
+*.coverage
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+dist/
+eggs/
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.nox/
+
+# Java/Android specific
 *.class
 *.jar
 *.war
 *.ear
-*.iml
-*.iws
-*.ipr
+*.nar
+hs_err_pid*
+replay_pid*
 
 # Gradle
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
 
-# Android specific
+# Android
+*.apk
 *.ap_
-*.dex
-*.so
-*.dylib
-*.dll
-*.obj
-*.o
-*.a
-*.lib
-*.exe
-*.out
-*.pyc
-*.pyo
-*.pyd
-*.jar
-*.war
-*.ear
-*.class
-*.hprof
-*.dump
-*.pid
-*.seed
-*.lock
-*.tmp
-*.temp
-*.log
-*.cache
-*.swp
-*.swo
-*.sdf
-*.opensdf
-*.user
-*.userosscache
-*.sln.docstates
-*.VC.db
-*.VC.VC.opendb
-*.ncb
-*.pdb
-*.aps
-*.ilk
-*.idb
-*.suo
-*.obj
-*.lib
-*.manifest
-*.res
-*.pch
-*.stackdump
-*.core
-*~
-~*
-.#*
-%*%
-._*
-.DS_Store
-.DS_Store?
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-[C-c]ache/
-[T-t]emp/
-[B-b]uild/
-[D-d]ist/
-[N-n]ode_modules/
-[V-v]env/
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.mypy_cache/
-.coverage
-coverage/
-htmlcov/
-*.egg-info/
-.eggs/
-.wafpickle-*
-build/
-dist/
-*.tar.gz
-*.whl
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage.*
-.nox/
-.hypothesis/
-.DS_Store
-*.swp
-*.swo
-*~
-.DS_Store
-ehthumbs.db
-Thumbs.db
-.cache
-.project
-.pydevproject
-.metadata
-bin/
-tmp/
-*.tmp
-*.bak
-*.swp
-*~
-.DS_Store
-.DS_Store?
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-[C-c]ache/
-[T-t]emp/
-[B-b]uild/
-[D-d]ist/
-[N-n]ode_modules/
-[V-v]env/
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.mypy_cache/
-.coverage
-coverage/
-htmlcov/
-*.egg-info/
-.eggs/
-.wafpickle-*
-build/
-dist/
-*.tar.gz
-*.whl
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage.*
-.nox/
-.hypothesis/
-.DS_Store
-*.swp
-*.swo
-*~
+*.aab
+local.properties
+captures/
+.externalNativeBuild
+.gradle
+.idea/libraries
+*.iml
 ```
