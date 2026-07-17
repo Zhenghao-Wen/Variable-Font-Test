@@ -24,7 +24,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SeekBarPreference
-import androidx.preference.SwitchPreference
+import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.preference.SimpleMenuPreference
@@ -114,7 +114,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
             val preference = when (typeValues[spinner.selectedItemPosition]) {
                 Constants.ADD_FEATURE_TYPE_SWITCH ->
-                    SwitchPreference(preferenceScreen.context).apply {
+                    SwitchPreferenceCompat(preferenceScreen.context).apply {
 
                         setOnPreferenceChangeListener { _, _ ->
                             setSetting(tagName, if (!isChecked) "1" else "0")
@@ -271,9 +271,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val editVariation: Preference? = findPreference(Constants.PREF_EDIT_VARIATION)
 
         val fontFeatures: PreferenceCategory? = findPreference(Constants.PREF_CATEGORY_FONT_FEATURES)
-        val chws: SwitchPreference? = findPreference(Constants.PREF_FEATURE_CHWS)
-        val halt: SwitchPreference? = findPreference(Constants.PREF_FEATURE_HALT)
-        val frac: SwitchPreference? = findPreference(Constants.PREF_FEATURE_FRAC)
+        val chws: SwitchPreferenceCompat? = findPreference(Constants.PREF_FEATURE_CHWS)
+        val halt: SwitchPreferenceCompat? = findPreference(Constants.PREF_FEATURE_HALT)
+        val frac: SwitchPreferenceCompat? = findPreference(Constants.PREF_FEATURE_FRAC)
         val featureEditor: EditTextPreference? = findPreference(Constants.PREF_FEATURE_EDITOR)
         val addFeature: Preference? = findPreference(Constants.PREF_ADD_FONT_FEATURE)
         val editFeatures: Preference? = findPreference(Constants.PREF_EDIT_FEATURE)
