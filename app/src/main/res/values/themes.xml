@@ -1,32 +1,22 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme with Material Design 3 -->
     <style name="Theme.VariableFontTest" parent="@style/Theme.Material3.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/cyan_500</item>
-        <!-- For transparent caption bar -->
-         <item name="colorPrimaryDark">@android:color/transparent</item>
-        <!-- <item name="colorPrimaryDark">@color/cyan_700</item> -->
-        <!-- https://m2.material.io/develop/android/theming/dark#color-palette -->
-        <item name="colorSurface">@color/cyan_500</item>
-        <item name="colorPrimaryVariant">@color/cyan_700</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/pink_A200</item>
-        <item name="colorSecondaryVariant">@color/pink_500</item>
-
+        <!-- Enable edge-to-edge display -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
         
-        <!-- Material Design 3 specific attributes -->
-        <item name="materialThemeOverlay">@style/ThemeOverlay.App.Material3</item>
+        <!-- Use Material Theme Overlay for dynamic colors on Android 12+ -->
+        <item name="materialThemeOverlay">@style/ThemeOverlay.App.DynamicColors</item>
+        
+        <!-- Force MD3 styles for Preference components -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
+        <!-- Force MD3 style for SeekBar -->
+        <item name="seekBarStyle">@style/Widget.AppCompat.SeekBar.Material</item>
     </style>
     
-    <!-- Material Design 3 overlay for dynamic colors -->
-    <style name="ThemeOverlay.App.Material3" parent="">
-        <!-- Enable dynamic colors on Android 12+ -->
-        <item name="colorPrimaryContainer">@color/cyan_200</item>
-        <item name="colorOnPrimaryContainer">@color/cyan_700</item>
-        <item name="colorSecondaryContainer">@color/pink_A200</item>
-        <item name="colorOnSecondaryContainer">@color/pink_500</item>
-        <!-- MD3 Switch thumb and track colors -->
-        <item name="colorSwitchThumbNormal">@color/cyan_500</item>
+    <!-- Dynamic colors overlay - only applies on Android 12+ (API 31+) -->
+    <!-- On older versions, falls back to default Material 3 colors -->
+    <style name="ThemeOverlay.App.DynamicColors" parent="">
+        <!-- These attributes will be overridden by system dynamic colors on Android 12+ -->
+        <!-- No hardcoded colors here to allow dynamic color picking -->
     </style>
 </resources>

@@ -130,21 +130,21 @@
         android:key="fontFeatures"
         android:title="@string/pref_category_features">
 
-        <SwitchPreference
+        <SwitchPreferenceCompat
             android:key="chwsFeature"
             android:title="@string/feature_chws"
             android:summary="@string/chws_description"
             android:defaultValue="true"
             android:persistent="false" />
 
-        <SwitchPreference
+        <SwitchPreferenceCompat
             android:key="haltFeature"
             android:title="@string/feature_halt"
             android:summary="@string/halt_description"
             android:defaultValue="false"
             android:persistent="false" />
 
-        <SwitchPreference
+        <SwitchPreferenceCompat
             android:key="fracFeature"
             android:title="@string/feature_frac"
             android:summary="@string/frac_description"
