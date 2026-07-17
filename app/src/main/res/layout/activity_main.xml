@@ -22,8 +22,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="?attr/actionBarSize"
-                app:title="@string/app_name"
-                app:titleTextColor="@color/white" />
+                app:title="@string/app_name" />
 
         </com.google.android.material.appbar.AppBarLayout>
 
@@ -31,7 +30,7 @@
             android:id="@+id/main_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:name="moe.echo.variablefonttest.MainFragment"
+            android:name="moe.echo.variablefonttest_n.MainFragment"
             tools:layout="@layout/main_fragment" />
     </LinearLayout>
 
