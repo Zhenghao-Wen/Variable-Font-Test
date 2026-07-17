@@ -1,6 +1,5 @@
 package moe.echo.variablefonttest_n
 
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Typeface
 import android.net.Uri
@@ -28,6 +27,7 @@ import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.preference.SimpleMenuPreference
 import java.io.File
 import java.io.FileOutputStream
@@ -61,7 +61,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         context: Context,
         preferences: PreferenceCategory,
         setSetting: (tagName: String, value: String) -> Unit
-    ) = AlertDialog.Builder(context).apply {
+    ) = MaterialAlertDialogBuilder(context).apply {
         // https://developer.android.com/develop/ui/views/components/dialogs#CustomLayout
         // Inflate and set the layout for the dialog
         // Pass null as the parent view because its going in the dialog layout
