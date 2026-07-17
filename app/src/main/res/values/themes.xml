@@ -26,5 +26,7 @@
         <item name="colorOnPrimaryContainer">@color/cyan_700</item>
         <item name="colorSecondaryContainer">@color/pink_A200</item>
         <item name="colorOnSecondaryContainer">@color/pink_500</item>
+        <!-- MD3 Switch thumb and track colors -->
+        <item name="colorSwitchThumbNormal">@color/cyan_500</item>
     </style>
 </resources>

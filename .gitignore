@@ -1,26 +1,78 @@
 ```
-# Build artifacts
-build/
-.gradle/
+# Compiled and build artifacts
+*.class
+*.o
+*.obj
+*.out
+*.dll
+*.so
+*.a
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.jar
+*.war
+*.ear
+*.zip
+*.tar
+*.gz
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 
 # Dependencies
-.libs.versions.toml.lock
-
-# IDE files
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# Environment
+node_modules/
+venv/
+.venv/
 .env
 .env.local
-*.env.*
+.env.*
+target/
+.gradle/
+.mypy_cache/
+.pytest_cache/
+coverage/
+htmlcov/
+.coverage
 
-# Logs
+# Build directories
+build/
+dist/
+out/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
 *.log
 
-# Temporary files
-*.tmp
-*.temp
+# System files
+.DS_Store
+Thumbs.db
+
+# Android specific
+*.apk
+*.aar
+*.dex
+*.so
+proguard/
 ```

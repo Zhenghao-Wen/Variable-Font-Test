@@ -56,6 +56,7 @@
     <string name="custom_font">Custom</string>
 
     <string name="tag_name">Tag name</string>
+    <string name="tag_type">Tag type</string>
     <string name="tag_seek_bar_minimum">Minimum value</string>
     <string name="tag_seek_bar_maximum">Maximum value</string>
     <string name="tag_seek_bar_step">Step value</string>

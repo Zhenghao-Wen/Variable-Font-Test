@@ -2,66 +2,89 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    
-    <Spinner
-        android:id="@+id/tagType"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginLeft="16dp"
-        android:layout_marginRight="16dp"
-        android:layout_marginBottom="4dp" />
+    android:layout_height="match_parent"
+    android:padding="16dp">
 
-    <EditText
-        android:id="@+id/tagName"
-        android:inputType="text"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tagTypeLayout"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginLeft="18dp"
-        android:layout_marginRight="18dp"
-        android:layout_marginBottom="4dp"
+        android:hint="@string/tag_type"
+        android:layout_marginBottom="16dp">
+
+        <Spinner
+            android:id="@+id/tagType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:hint="@string/tag_name"
-        android:autofillHints="no" />
+        android:layout_marginBottom="16dp">
 
-    <EditText
-        android:id="@+id/tagSeekBarMin"
-        android:inputType="numberDecimal|numberSigned"
+        <EditText
+            android:id="@+id/tagName"
+            android:inputType="text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="no" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginLeft="18dp"
-        android:layout_marginRight="18dp"
-        android:layout_marginBottom="4dp"
         android:hint="@string/tag_seek_bar_minimum"
         android:visibility="gone"
-        android:autofillHints="no" />
+        android:layout_marginBottom="16dp">
 
-    <EditText
-        android:id="@+id/tagSeekBarMax"
-        android:inputType="numberDecimal|numberSigned"
+        <EditText
+            android:id="@+id/tagSeekBarMin"
+            android:inputType="numberDecimal|numberSigned"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="no" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginLeft="18dp"
-        android:layout_marginRight="18dp"
-        android:layout_marginBottom="4dp"
         android:hint="@string/tag_seek_bar_maximum"
         android:visibility="gone"
-        android:autofillHints="no" />
+        android:layout_marginBottom="16dp">
 
-    <EditText
-        android:id="@+id/tagSeekBarStep"
-        android:inputType="numberDecimal"
+        <EditText
+            android:id="@+id/tagSeekBarMax"
+            android:inputType="numberDecimal|numberSigned"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="no" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginLeft="18dp"
-        android:layout_marginRight="18dp"
-        android:layout_marginBottom="4dp"
         android:hint="@string/tag_seek_bar_step"
         android:visibility="gone"
-        android:autofillHints="no" />
+        android:layout_marginBottom="16dp">
+
+        <EditText
+            android:id="@+id/tagSeekBarStep"
+            android:inputType="numberDecimal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="no" />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
 </LinearLayout>
