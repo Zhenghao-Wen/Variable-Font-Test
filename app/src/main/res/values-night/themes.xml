@@ -28,5 +28,7 @@
         <item name="colorOnSecondaryContainer">@color/pink_A200</item>
         <item name="colorSurfaceVariant">#49454F</item>
         <item name="colorOnSurfaceVariant">#CAC4D0</item>
+        <!-- MD3 Switch thumb and track colors for dark mode -->
+        <item name="colorSwitchThumbNormal">@color/cyan_200</item>
     </style>
 </resources>
