@@ -1,8 +1,16 @@
 ```
-# Gradle
-.gradle/
+# Build artifacts
 build/
-.libs/
+.gradle/
+
+# Dependencies
+.libs.versions.toml.lock
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
 
 # Environment
 .env
@@ -12,25 +20,7 @@ build/
 # Logs
 *.log
 
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Temporary files
 *.tmp
-
-# Python (if applicable)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
-.env
-.env.local
+*.temp
 ```

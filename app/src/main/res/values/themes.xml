@@ -14,5 +14,17 @@
         <item name="colorSecondaryVariant">@color/pink_500</item>
 
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
+        
+        <!-- Material Design 3 specific attributes -->
+        <item name="materialThemeOverlay">@style/ThemeOverlay.App.Material3</item>
+    </style>
+    
+    <!-- Material Design 3 overlay for dynamic colors -->
+    <style name="ThemeOverlay.App.Material3" parent="">
+        <!-- Enable dynamic colors on Android 12+ -->
+        <item name="colorPrimaryContainer">@color/cyan_200</item>
+        <item name="colorOnPrimaryContainer">@color/cyan_700</item>
+        <item name="colorSecondaryContainer">@color/pink_A200</item>
+        <item name="colorOnSecondaryContainer">@color/pink_500</item>
     </style>
 </resources>
