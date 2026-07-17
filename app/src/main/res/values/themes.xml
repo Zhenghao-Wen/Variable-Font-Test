@@ -4,13 +4,11 @@
         <!-- Enable edge-to-edge display -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
         
-        <!-- Use Material Theme Overlay for dynamic colors on Android 12+ -->
+        <!-- Force Material Theme Overlay for dynamic colors on Android 12+ -->
         <item name="materialThemeOverlay">@style/ThemeOverlay.App.DynamicColors</item>
         
         <!-- Force MD3 styles for Preference components -->
         <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
-        <!-- Force MD3 style for SeekBar -->
-        <item name="seekBarStyle">@style/Widget.AppCompat.SeekBar.Material</item>
     </style>
     
     <!-- Dynamic colors overlay - only applies on Android 12+ (API 31+) -->
