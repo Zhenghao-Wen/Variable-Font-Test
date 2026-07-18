@@ -38,7 +38,8 @@
             android:key="customFont"
             app:isPreferenceVisible="false"
             android:title="@string/choose_font"
-            android:icon="@drawable/ic_baseline_open_in_new_24" />
+            android:icon="@drawable/ic_baseline_open_in_new_24"
+            android:iconSpaceReserved="false" />
 
     </PreferenceCategory>
 
@@ -117,12 +118,14 @@
         <Preference
             android:key="addVariation"
             android:title="@string/add_font_variation"
-            android:icon="@drawable/baseline_add_24" />
+            android:icon="@drawable/baseline_add_24"
+            android:iconSpaceReserved="false" />
 
         <Preference
             android:key="editVariation"
             android:title="@string/edit_variation_text"
-            android:icon="@drawable/ic_baseline_edit_24" />
+            android:icon="@drawable/ic_baseline_edit_24"
+            android:iconSpaceReserved="false" />
 
     </PreferenceCategory>
 
@@ -135,21 +138,24 @@
             android:title="@string/feature_chws"
             android:summary="@string/chws_description"
             android:defaultValue="true"
-            android:persistent="false" />
+            android:persistent="false"
+            android:iconSpaceReserved="false" />
 
         <SwitchPreferenceCompat
             android:key="haltFeature"
             android:title="@string/feature_halt"
             android:summary="@string/halt_description"
             android:defaultValue="false"
-            android:persistent="false" />
+            android:persistent="false"
+            android:iconSpaceReserved="false" />
 
         <SwitchPreferenceCompat
             android:key="fracFeature"
             android:title="@string/feature_frac"
             android:summary="@string/frac_description"
             android:defaultValue="false"
-            android:persistent="false" />
+            android:persistent="false"
+            android:iconSpaceReserved="false" />
 
         <EditTextPreference
             android:key="featureEditor"
@@ -161,12 +167,14 @@
         <Preference
             android:key="addFeature"
             android:title="@string/add_font_feature"
-            android:icon="@drawable/baseline_add_24" />
+            android:icon="@drawable/baseline_add_24"
+            android:iconSpaceReserved="false" />
 
         <Preference
             android:key="editFeature"
             android:title="@string/edit_feature_text"
-            android:icon="@drawable/ic_baseline_edit_24" />
+            android:icon="@drawable/ic_baseline_edit_24"
+            android:iconSpaceReserved="false" />
 
     </PreferenceCategory>
 
@@ -177,7 +185,8 @@
         <Preference
             android:key="sourceCode"
             android:title="@string/pref_source_code"
-            android:icon="@drawable/ic_baseline_code_24">
+            android:icon="@drawable/ic_baseline_code_24"
+            android:iconSpaceReserved="false">
 
             <intent android:action="android.intent.action.VIEW"
                 android:data="@string/project_homepage" />
@@ -188,7 +197,8 @@
             android:key="translators"
             android:summary="@string/pref_translator_list"
             android:title="@string/pref_translators"
-            android:icon="@drawable/translate_24px">
+            android:icon="@drawable/translate_24px"
+            android:iconSpaceReserved="false">
 
             <intent android:action="android.intent.action.VIEW"
                 android:data="@string/project_translators" />

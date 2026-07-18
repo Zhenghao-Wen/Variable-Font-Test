@@ -3,18 +3,31 @@
     <style name="Theme.VariableFontTest" parent="@style/Theme.Material3.DayNight.NoActionBar">
         <!-- Enable edge-to-edge display -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
-        
+
         <!-- Force Material Theme Overlay for dynamic colors on Android 12+ -->
         <item name="materialThemeOverlay">@style/ThemeOverlay.App.DynamicColors</item>
-        
+
         <!-- Force MD3 styles for Preference components -->
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Material3</item>
     </style>
-    
-    <!-- Dynamic colors overlay - only applies on Android 12+ (API 31+) -->
-    <!-- On older versions, falls back to default Material 3 colors -->
+
+    <!-- Force Material Theme Overlay for dynamic colors on Android 12+ -->
     <style name="ThemeOverlay.App.DynamicColors" parent="">
         <!-- These attributes will be overridden by system dynamic colors on Android 12+ -->
         <!-- No hardcoded colors here to allow dynamic color picking -->
+    </style>
+
+    <!-- MD3 Preference theme with proper switch style -->
+    <style name="PreferenceThemeOverlay.Material3" parent="@style/PreferenceThemeOverlay">
+        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.Material3</item>
+        <item name="switchPreferenceStyle">@style/Preference.SwitchPreference.Material3</item>
+    </style>
+
+    <style name="Preference.SwitchPreferenceCompat.Material3" parent="@style/Preference.SwitchPreferenceCompat.Material">
+        <item name="android:widgetLayout">@layout/preference_widget_switch_compat</item>
+    </style>
+
+    <style name="Preference.SwitchPreference.Material3" parent="@style/Preference.SwitchPreference.Material">
+        <item name="android:widgetLayout">@layout/preference_widget_switch</item>
     </style>
 </resources>
