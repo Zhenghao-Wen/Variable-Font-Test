@@ -8,7 +8,9 @@
         <!-- Enable dynamic colors for Android 12+ (Material You) -->
         <item name="android:theme">@style/ThemeOverlay.Material3.DynamicColors.DayNight</item>
         
-        <!-- Apply MD3 preference theme -->
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Material3</item>
+        <!-- Apply MD3 preference theme with dialog styling -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
+        <item name="android:dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <item name="android:alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
     </style>
 </resources>
