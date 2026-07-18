@@ -7,16 +7,5 @@
 
         <!-- Enable dynamic colors for Android 12+ (Material You) using ThemeOverlay -->
         <item name="android:theme">@style/ThemeOverlay.Material3.DynamicColors.DayNight</item>
-
-        <!-- Force MD3 styles for Preference components -->
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Material3</item>
-    </style>
-
-    <!-- MD3 Preference theme with proper switch style -->
-    <style name="PreferenceThemeOverlay.Material3" parent="@style/PreferenceThemeOverlay">
-        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.Material3</item>
-        <item name="switchPreferenceStyle">@style/Preference.SwitchPreference.Material3</item>
-        <item name="android:dialogTheme">@style/DialogTheme.Material3</item>
-        <item name="android:alertDialogTheme">@style/DialogTheme.Material3</item>
     </style>
 </resources>
