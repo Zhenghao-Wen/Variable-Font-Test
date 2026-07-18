@@ -242,7 +242,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val valueToTypeface = fontFamilyValues.zip(fontFamilyList).toMap()
 
         val previewContent: EditText? =
-            requireParentFragment().requireView().findViewById(R.id.preview_content)
+            parentFragment?.view?.findViewById(R.id.preview_content)
 
         val textSize: EditTextPreference? = findPreference(Constants.PREF_TEXT_SIZE)
         val fontFamilies: SimpleMenuPreference? = findPreference(Constants.PREF_FONT_FAMILIES)
