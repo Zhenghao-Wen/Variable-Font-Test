@@ -1,10 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Variable Font Test N</string>
     <string name="project_homepage" translatable="false">
-        https://github.com/WordlessEcho/Variable-Font-Test
+        https://github.com/Zhenghao-Wen/Variable-Font-Test
     </string>
     <string name="project_translators" translatable="false">
-        https://github.com/WordlessEcho/Variable-Font-Test/blob/main/TRANSLATORS.md
+        https://github.com/Zhenghao-Wen/Variable-Font-Test/blob/main/TRANSLATORS.md
     </string>
 
     <string name="default_preview">(Click here to input any text you want to see.) This sentence becomes to the idiom of when you drink water, think of its source, which means don’t just be thankful for the water: be thankful for all the elements and processes (both past and present) that allowed you to enjoy that humble cup of water.</string>

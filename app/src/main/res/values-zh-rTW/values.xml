@@ -2,7 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">可變字型測試器</string>
     <string name="project_translators" translatable="false">
-        https://github.com/WordlessEcho/Variable-Font-Test/blob/main/TRANSLATORS.md#zh-rTW
+        https://github.com/Zhenghao-Wen/Variable-Font-Test/blob/main/TRANSLATORS.md#zh-rTW
     </string>
 
     <string name="default_preview">（點此處輸入您想查看的任何文字。）這句話後來演變成「飲水思源」這個成語，意為喝水的時候想一想流水的源頭，比喻不忘本。</string>
