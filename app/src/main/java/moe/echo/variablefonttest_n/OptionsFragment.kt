@@ -308,11 +308,25 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
         ttcIndex?.setOnBindEditTextListener { editText ->
             editText.inputType = InputType.TYPE_CLASS_NUMBER
+            // Apply MD3 styling to the EditText in dialog
+            editText.setPaddingRelative(
+                editText.paddingStart,
+                editText.paddingTop,
+                editText.paddingEnd,
+                editText.paddingBottom
+            )
         }
 
         textSize?.apply {
             setOnBindEditTextListener { editText ->
                 editText.inputType = InputType.TYPE_CLASS_NUMBER
+                // Apply MD3 styling to the EditText in dialog
+                editText.setPaddingRelative(
+                    editText.paddingStart,
+                    editText.paddingTop,
+                    editText.paddingEnd,
+                    editText.paddingBottom
+                )
             }
             setOnPreferenceChangeListener { _, newValue ->
                 if (newValue.toString().toFloatOrNull() != null) {

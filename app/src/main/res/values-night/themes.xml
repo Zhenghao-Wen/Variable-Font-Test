@@ -16,5 +16,8 @@
         <item name="colorOnTertiary">@android:color/system_accent3_900</item>
         <item name="colorOnBackground">@android:color/system_neutral1_100</item>
         <item name="colorOnSurface">@android:color/system_neutral1_100</item>
+        
+        <!-- Force MD3 styles for Preference components in night mode -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Material3</item>
     </style>
 </resources>
