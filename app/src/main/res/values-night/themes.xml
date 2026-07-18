@@ -5,7 +5,10 @@
         <!-- Enable edge-to-edge display -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
 
-        <!-- Enable dynamic colors for Android 12+ (Material You) using ThemeOverlay -->
+        <!-- Enable dynamic colors for Android 12+ (Material You) -->
         <item name="android:theme">@style/ThemeOverlay.Material3.DynamicColors.DayNight</item>
+        
+        <!-- Apply MD3 preference theme -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.Material3</item>
     </style>
 </resources>
