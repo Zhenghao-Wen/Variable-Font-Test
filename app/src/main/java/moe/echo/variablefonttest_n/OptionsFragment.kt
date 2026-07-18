@@ -101,6 +101,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
             val tagName = tagNameEditText.text.toString()
 
             val selectedItemPosition = adapter.getPosition(autoCompleteTextView.text.toString())
+            
+            // Validate position to prevent ArrayIndexOutOfBoundsException
+            if (selectedItemPosition < 0 || selectedItemPosition >= typeValues.size) {
+                Toast.makeText(context, R.string.invalid_tag_type, Toast.LENGTH_SHORT).show()
+                return@setPositiveButton
+            }
+            
             val preference = when (typeValues[selectedItemPosition]) {
                 Constants.ADD_FEATURE_TYPE_SWITCH ->
                     SwitchPreferenceCompat(preferenceScreen.context).apply {
