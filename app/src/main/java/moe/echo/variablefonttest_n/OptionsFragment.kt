@@ -577,11 +577,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val ttcIndex: EditTextPreference? = findPreference(Constants.PREF_TTC_INDEX)
+                val ttcIndexValue = ttcIndex?.text?.toIntOrNull() ?: 0
 
                 activity?.contentResolver?.openFileDescriptor(uri, "r")?.use {
                     val builder = Typeface.Builder(it.fileDescriptor)
                     builder.setFontVariationSettings(fontVariationSettings.toFeatures())
-                    builder.setTtcIndex(ttcIndex?.text?.toInt() ?: 0)
+                    builder.setTtcIndex(ttcIndexValue)
                     previewContent?.typeface = builder.build()
                     return@runOnUiThread
                 } ?: {
