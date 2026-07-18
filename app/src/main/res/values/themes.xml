@@ -9,8 +9,8 @@
         <item name="android:theme">@style/ThemeOverlay.Material3.DynamicColors.DayNight</item>
         
         <!-- Apply MD3 preference theme with dialog styling -->
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
-        <item name="android:dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
     </style>
 </resources>

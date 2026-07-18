@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="?attr/colorSurface">
 
-    <include layout="@layout/main_fragment_content" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <include layout="@layout/main_fragment_content" />
+
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/options_fragment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:name="moe.echo.variablefonttest_n.OptionsFragment" />
+
+    </LinearLayout>
 
 </FrameLayout>
