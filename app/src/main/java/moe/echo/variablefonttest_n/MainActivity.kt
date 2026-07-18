@@ -12,9 +12,15 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.FragmentContainerView
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.color.DynamicColors
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Apply dynamic colors for Android 12+ before setContentView
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            DynamicColors.applyToActivityIfAvailable(this)
+        }
+        
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 

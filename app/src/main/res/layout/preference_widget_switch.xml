@@ -6,4 +6,4 @@
     android:background="@null"
     android:clickable="false"
     android:focusable="false"
-    android:theme="@style/Theme.Material3.DayNight" />
+    android:theme="@style/ThemeOverlay.Material3.DynamicColors.DayNight" />
