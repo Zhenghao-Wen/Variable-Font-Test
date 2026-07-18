@@ -8,10 +8,8 @@ import android.os.Bundle
 import android.text.InputType
 import android.util.Log
 import android.view.View
-import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.EditText
-import android.widget.Spinner
+import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -66,53 +64,43 @@ class OptionsFragment : PreferenceFragmentCompat() {
         // Pass null as the parent view because its going in the dialog layout
         val dialogLayout = View.inflate(context, R.layout.add_preference_dialog, null)
 
-        val spinner = dialogLayout.findViewById<Spinner>(R.id.tagType)
+        val autoCompleteTextView = dialogLayout.findViewById<AutoCompleteTextView>(R.id.tagType)
         val typeValues = resources.getStringArray(R.array.font_feature_type_values)
 
-        val seekBarMin = dialogLayout.findViewById<EditText>(R.id.tagSeekBarMin)
-        val seekBarMax = dialogLayout.findViewById<EditText>(R.id.tagSeekBarMax)
-        val seekBarStep = dialogLayout.findViewById<EditText>(R.id.tagSeekBarStep)
+        val seekBarMin = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagSeekBarMin)
+        val seekBarMax = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagSeekBarMax)
+        val seekBarStep = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagSeekBarStep)
 
-        ArrayAdapter.createFromResource(
+        val adapter = ArrayAdapter.createFromResource(
             context,
             R.array.font_feature_types,
-            android.R.layout.simple_spinner_item
-        ).also { adapter ->
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            android.R.layout.simple_dropdown_item_1line
+        )
 
-            spinner.adapter = adapter
-            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(
-                    parent: AdapterView<*>?,
-                    view: View?,
-                    position: Int,
-                    id: Long
-                ) {
-                    when (typeValues[position]) {
-                        Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
-                            seekBarMin.isVisible = true
-                            seekBarMax.isVisible = true
-                            seekBarStep.isVisible = true
-                        }
-                        else -> {
-                            seekBarMin.isVisible = false
-                            seekBarMax.isVisible = false
-                            seekBarStep.isVisible = false
-                        }
-                    }
+        autoCompleteTextView.setAdapter(adapter)
+        autoCompleteTextView.setOnItemClickListener { _, _, position, _ ->
+            when (typeValues[position]) {
+                Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
+                    seekBarMin.isVisible = true
+                    seekBarMax.isVisible = true
+                    seekBarStep.isVisible = true
                 }
-
-                override fun onNothingSelected(parent: AdapterView<*>?) { return }
+                else -> {
+                    seekBarMin.isVisible = false
+                    seekBarMax.isVisible = false
+                    seekBarStep.isVisible = false
+                }
             }
         }
 
         setView(dialogLayout)
 
         setPositiveButton(android.R.string.ok) { _, _ ->
-            val tagNameEditText = dialogLayout.findViewById<EditText>(R.id.tagName)
+            val tagNameEditText = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagName)
             val tagName = tagNameEditText.text.toString()
 
-            val preference = when (typeValues[spinner.selectedItemPosition]) {
+            val selectedItemPosition = autoCompleteTextView.currentList.indexOf(autoCompleteTextView.text.toString())
+            val preference = when (typeValues[selectedItemPosition]) {
                 Constants.ADD_FEATURE_TYPE_SWITCH ->
                     SwitchPreferenceCompat(preferenceScreen.context).apply {
 

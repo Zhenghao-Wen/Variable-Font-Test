@@ -1,26 +1,39 @@
-# Build artifacts
-build/
-dist/
+```
+# Compiled and build artifacts
+*.class
+*.o
+*.obj
+*.out
+*.dll
+*.so
+*.a
+*.pyc
+__pycache__/
 
 # Dependencies
 node_modules/
 venv/
 .venv/
-__pycache__/
-*.egg-info/
+.env
+.env.local
+*.env.*
 
-# IDE files
+# Build directories
+dist/
+build/
+target/
+.gradle/
+
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
 # System files
 .DS_Store
 Thumbs.db
-.env
-.env.local
-*.env.*
 
 # Logs
 *.log
@@ -31,45 +44,18 @@ htmlcov/
 .coverage
 
 # Python specific
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# Gradle
-.gradle/
-build/
-
-# Target directory (Rust, other build systems)
-target/
-
-# MyPy cache
 .mypy_cache/
-
-# Pytest cache
 .pytest_cache/
+
+# Java/Kotlin specific
+*.jar
+*.war
+*.class
+!*.java
+!*.kt
+
+# Android specific
+*.apk
+*.aab
+local.properties
+```
