@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -99,7 +100,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             val tagNameEditText = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagName)
             val tagName = tagNameEditText.text.toString()
 
-            val selectedItemPosition = autoCompleteTextView.currentList.indexOf(autoCompleteTextView.text.toString())
+            val selectedItemPosition = adapter.getPosition(autoCompleteTextView.text.toString())
             val preference = when (typeValues[selectedItemPosition]) {
                 Constants.ADD_FEATURE_TYPE_SWITCH ->
                     SwitchPreferenceCompat(preferenceScreen.context).apply {
