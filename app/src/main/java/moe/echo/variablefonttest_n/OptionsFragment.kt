@@ -79,8 +79,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
         )
 
         autoCompleteTextView.setAdapter(adapter)
-        autoCompleteTextView.setOnItemClickListener { _, _, position, _ ->
-            when (typeValues[position]) {
+        
+        // Helper function to show/hide seek bar fields based on selected type
+        fun updateSeekBarFieldsVisibility(selectedPosition: Int) {
+            when (typeValues[selectedPosition]) {
                 Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
                     seekBarMin.isVisible = true
                     seekBarMax.isVisible = true
@@ -91,6 +93,19 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     seekBarMax.isVisible = false
                     seekBarStep.isVisible = false
                 }
+            }
+        }
+        
+        autoCompleteTextView.setOnItemClickListener { _, _, position, _ ->
+            updateSeekBarFieldsVisibility(position)
+        }
+        
+        // Initialize visibility based on default selection (if any)
+        val currentText = autoCompleteTextView.text.toString()
+        if (currentText.isNotEmpty()) {
+            val currentPosition = adapter.getPosition(currentText)
+            if (currentPosition >= 0) {
+                updateSeekBarFieldsVisibility(currentPosition)
             }
         }
 
