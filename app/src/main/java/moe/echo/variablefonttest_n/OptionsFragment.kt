@@ -68,6 +68,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val autoCompleteTextView = dialogLayout.findViewById<AutoCompleteTextView>(R.id.tagType)
         val typeValues = resources.getStringArray(R.array.font_feature_type_values)
 
+        val seekBarMinLayout = dialogLayout.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.tagSeekBarMinLayout)
+        val seekBarMaxLayout = dialogLayout.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.tagSeekBarMaxLayout)
+        val seekBarStepLayout = dialogLayout.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.tagSeekBarStepLayout)
+        
         val seekBarMin = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagSeekBarMin)
         val seekBarMax = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagSeekBarMax)
         val seekBarStep = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagSeekBarStep)
@@ -84,14 +88,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
         fun updateSeekBarFieldsVisibility(selectedPosition: Int) {
             when (typeValues[selectedPosition]) {
                 Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
-                    seekBarMin.isVisible = true
-                    seekBarMax.isVisible = true
-                    seekBarStep.isVisible = true
+                    seekBarMinLayout.isVisible = true
+                    seekBarMaxLayout.isVisible = true
+                    seekBarStepLayout.isVisible = true
                 }
                 else -> {
-                    seekBarMin.isVisible = false
-                    seekBarMax.isVisible = false
-                    seekBarStep.isVisible = false
+                    seekBarMinLayout.isVisible = false
+                    seekBarMaxLayout.isVisible = false
+                    seekBarStepLayout.isVisible = false
                 }
             }
         }
