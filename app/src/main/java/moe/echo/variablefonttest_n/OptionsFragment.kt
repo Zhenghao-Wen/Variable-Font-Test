@@ -83,6 +83,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
         )
 
         autoCompleteTextView.setAdapter(adapter)
+        // Set default selection to the first item (Switch)
+        if (autoCompleteTextView.text.toString().isEmpty()) {
+            autoCompleteTextView.setText(adapter.getItem(0), false)
+        }
         
         // Helper function to show/hide seek bar fields based on selected type
         fun updateSeekBarFieldsVisibility(selectedPosition: Int) {
@@ -104,13 +108,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
             updateSeekBarFieldsVisibility(position)
         }
         
-        // Initialize visibility based on default selection (if any)
-        val currentText = autoCompleteTextView.text.toString()
-        if (currentText.isNotEmpty()) {
-            val currentPosition = adapter.getPosition(currentText)
-            if (currentPosition >= 0) {
-                updateSeekBarFieldsVisibility(currentPosition)
-            }
+        // Initialize visibility based on current selection
+        val currentPosition = adapter.getPosition(autoCompleteTextView.text.toString())
+        if (currentPosition >= 0) {
+            updateSeekBarFieldsVisibility(currentPosition)
         }
 
         setView(dialogLayout)
