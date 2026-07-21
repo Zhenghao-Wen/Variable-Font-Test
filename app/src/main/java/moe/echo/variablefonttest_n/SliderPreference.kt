@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.AttributeSet
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
-import com.google.android.material.slider.LabelBehavior
 import com.google.android.material.slider.Slider
 
 /**
@@ -48,11 +47,8 @@ class SliderPreference @JvmOverloads constructor(
         s.valueFrom = valueFrom
         s.valueTo = valueTo
         s.stepSize = stepSize
-        s.labelBehavior = if (showLabel) {
-            LabelBehavior.FLOATING
-        } else {
-            LabelBehavior.GONE
-        }
+        // Set label behavior: FLOATING for showLabel=true, GONE otherwise
+        s.setLabelBehavior(if (showLabel) { 1 } else { 0 })
         // Remove listener before setting value to avoid spurious callbacks
         s.removeOnChangeListener(onChangeListener)
         s.value = sliderValue.coerceIn(valueFrom, valueTo)
