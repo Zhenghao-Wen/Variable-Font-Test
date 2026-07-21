@@ -60,4 +60,7 @@
     <string name="feature_type_switch">開關</string>
     <string name="feature_type_seek_bar">滑動條</string>
     <string name="feature_type_edit_text">文字</string>
+
+    <!-- MD3 Slider toggle (Toolbar menu) -->
+    <string name="enable_md3_slider">啟用新版 Material 3 滑桿</string>
 </resources>

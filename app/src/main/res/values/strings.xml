@@ -65,4 +65,7 @@
     <string name="feature_type_seek_bar">SeekBar</string>
     <string name="feature_type_edit_text">Text</string>
     <string name="invalid_tag_type">Invalid tag type selected</string>
+
+    <!-- MD3 Slider toggle (Toolbar menu) -->
+    <string name="enable_md3_slider">Enable new Material 3 Sliders</string>
 </resources>

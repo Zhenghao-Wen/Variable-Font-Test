@@ -40,4 +40,7 @@ object Constants {
     const val ADD_FEATURE_TYPE_SWITCH = "switch"
     const val ADD_FEATURE_TYPE_SEEK_BAR = "seekBar"
     const val ADD_FEATURE_TYPE_EDIT_TEXT = "editText"
+
+    // ── MD3 Slider toggle ──
+    const val PREF_USE_MD3_SLIDER = "use_md3_slider"
 }

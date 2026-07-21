@@ -1,6 +1,8 @@
 package moe.echo.variablefonttest_n
 
 import android.os.Build
+import android.view.Menu
+import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
@@ -11,7 +13,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.FragmentContainerView
+import androidx.preference.PreferenceManager
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.color.DynamicColors
 
 class MainActivity : AppCompatActivity() {
@@ -90,5 +94,32 @@ class MainActivity : AppCompatActivity() {
                 windowInsets
             }
         }
+
+        // ── Toolbar menu setup ──
+        val toolbar: MaterialToolbar? = findViewById(R.id.toolbar)
+        toolbar?.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_enable_md3_slider -> {
+                    menuItem.isChecked = !menuItem.isChecked
+                    PreferenceManager.getDefaultSharedPreferences(this)
+                        .edit()
+                        .putBoolean(Constants.PREF_USE_MD3_SLIDER, menuItem.isChecked)
+                        .apply()
+                    // Recreate to rebuild preference screen with new slider mode
+                    recreate()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        // Sync checkbox state with stored preference
+        val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(this)
+            .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+        menu.findItem(R.id.action_enable_md3_slider)?.isChecked = useMd3Slider
+        return true
     }
 }

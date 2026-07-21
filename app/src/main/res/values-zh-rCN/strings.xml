@@ -56,4 +56,7 @@
     <string name="sans_serif">无衬线</string>
     <string name="serif">衬线</string>
     <string name="custom_font">自定义</string>
+
+    <!-- MD3 Slider toggle (Toolbar menu) -->
+    <string name="enable_md3_slider">启用新版 Material 3 滑块</string>
 </resources>

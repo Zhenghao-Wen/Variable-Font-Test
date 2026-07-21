@@ -20,11 +20,13 @@
             android:background="?attr/colorSurface">
 
             <com.google.android.material.appbar.MaterialToolbar
+                android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="?attr/actionBarSize"
                 app:title="@string/app_name"
-                app:titleCentered="false" />
+                app:titleCentered="false"
+                app:menu="@menu/main_menu" />
 
         </com.google.android.material.appbar.AppBarLayout>
 

@@ -26,6 +26,7 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
+import androidx.preference.PreferenceManager
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -416,8 +417,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
             true
         }
 
-        // SeekBar only support positive integers
-        ital?.setOnPreferenceChangeListener { _, newValue ->
+        // ── Variation axis change handlers (shared between SeekBar & Slider) ──
+        val italHandler: (Any?) -> Boolean = { newValue ->
             val value = newValue.toString().toFloatOrNull()
 
             if (value != null) {
@@ -427,7 +428,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             } else false
         }
 
-        opsz?.setOnPreferenceChangeListener { _, newValue ->
+        val opszHandler: (Any?) -> Boolean = { newValue ->
             val value = newValue.toString().toFloatOrNull()
 
             if (value != null) {
@@ -437,7 +438,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             } else false
         }
 
-        slnt?.setOnPreferenceChangeListener { _, newValue ->
+        val slntHandler: (Any?) -> Boolean = { newValue ->
             val value = newValue.toString().toFloatOrNull()
 
             if (value != null) {
@@ -447,7 +448,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             } else false
         }
 
-        wdth?.setOnPreferenceChangeListener { _, newValue ->
+        val wdthHandler: (Any?) -> Boolean = { newValue ->
             val value = newValue.toString().toFloatOrNull()
 
             if (value != null) {
@@ -457,7 +458,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             } else false
         }
 
-        wght?.setOnPreferenceChangeListener { _, newValue ->
+        val wghtHandler: (Any?) -> Boolean = { newValue ->
             val value = newValue.toString().toFloatOrNull()
 
             if (value != null) {
@@ -465,6 +466,100 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 setVariation(fontVariationSettings.toFeatures())
                 true
             } else false
+        }
+
+        // ── Check MD3 Slider toggle ──
+        val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+
+        if (useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Replace SeekBarPreferences with MD3 SliderPreferences
+            variations?.let { category ->
+                val replacements = listOf(
+                    SliderReplacement(
+                        seekBarKey = Constants.PREF_VARIATION_ITALIC,
+                        titleRes = R.string.variation_italic,
+                        summary = "ital",
+                        valueFrom = 0f,
+                        valueTo = 10f,
+                        stepSize = 1f,
+                        defaultValue = 0f,
+                        showLabel = false,
+                        handler = italHandler
+                    ),
+                    SliderReplacement(
+                        seekBarKey = Constants.PREF_VARIATION_OPTICAL_SIZE,
+                        titleRes = R.string.variation_optical_size,
+                        summary = "opsz",
+                        valueFrom = 1f,
+                        valueTo = 1440f,
+                        stepSize = 1f,
+                        defaultValue = 1f,
+                        showLabel = false,
+                        handler = opszHandler
+                    ),
+                    SliderReplacement(
+                        seekBarKey = Constants.PREF_VARIATION_SLANT,
+                        titleRes = R.string.variation_slant,
+                        summary = "slnt",
+                        valueFrom = 0f,
+                        valueTo = 180f,
+                        stepSize = 1f,
+                        defaultValue = 90f,
+                        showLabel = false,
+                        handler = slntHandler
+                    ),
+                    SliderReplacement(
+                        seekBarKey = Constants.PREF_VARIATION_WIDTH,
+                        titleRes = R.string.variation_width,
+                        summary = "wdth",
+                        valueFrom = 0f,
+                        valueTo = 2000f,
+                        stepSize = 1f,
+                        defaultValue = 1000f,
+                        showLabel = false,
+                        handler = wdthHandler
+                    ),
+                    SliderReplacement(
+                        seekBarKey = Constants.PREF_VARIATION_WEIGHT,
+                        titleRes = R.string.variation_weight,
+                        summary = "wght",
+                        valueFrom = 1f,
+                        valueTo = 1000f,
+                        stepSize = 1f,
+                        defaultValue = 400f,
+                        showLabel = true,
+                        handler = wghtHandler
+                    )
+                )
+
+                for (r in replacements) {
+                    val oldPref = findPreference<SeekBarPreference>(r.seekBarKey) ?: continue
+                    val order = oldPref.order
+                    val sliderPref = SliderPreference(requireContext()).apply {
+                        key = r.seekBarKey
+                        title = getString(r.titleRes)
+                        summary = r.summary
+                        valueFrom = r.valueFrom
+                        valueTo = r.valueTo
+                        stepSize = r.stepSize
+                        sliderValue = r.defaultValue
+                        showLabel = r.showLabel
+                        isPersistent = false
+                        setOnPreferenceChangeListener { _, newValue -> r.handler(newValue) }
+                    }
+                    category.removePreference(oldPref)
+                    sliderPref.order = order
+                    category.addPreference(sliderPref)
+                }
+            }
+        } else {
+            // Default: use legacy SeekBar with original listeners
+            ital?.setOnPreferenceChangeListener { _, newValue -> italHandler(newValue) }
+            opsz?.setOnPreferenceChangeListener { _, newValue -> opszHandler(newValue) }
+            slnt?.setOnPreferenceChangeListener { _, newValue -> slntHandler(newValue) }
+            wdth?.setOnPreferenceChangeListener { _, newValue -> wdthHandler(newValue) }
+            wght?.setOnPreferenceChangeListener { _, newValue -> wghtHandler(newValue) }
         }
 
         variationEditor?.setOnPreferenceChangeListener { _, newValue ->
@@ -702,3 +797,18 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
     }
 }
+
+/**
+ * Describes a SeekBarPreference → SliderPreference replacement.
+ */
+private data class SliderReplacement(
+    val seekBarKey: String,
+    val titleRes: Int,
+    val summary: String,
+    val valueFrom: Float,
+    val valueTo: Float,
+    val stepSize: Float,
+    val defaultValue: Float,
+    val showLabel: Boolean,
+    val handler: (Any?) -> Boolean
+)
