@@ -1,0 +1,176 @@
+name: Extract Source for SeekBar & Menu Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout QwenCode branch
+        uses: actions/checkout@v4
+        with:
+          ref: QwenCode
+          fetch-depth: 1
+
+      - name: Build focused audit report
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPORT="seekbar_menu_audit.txt"
+          LIMIT=51200
+          CURRENT=0
+
+          file_size() { wc -c < "$1" 2>/dev/null || echo 0; }
+
+          emit_file() {
+            local f="$1" label="$2" maxlines="${3:-0}"
+            [ -f "$f" ] || return 0
+            local header="## [$label] $f"
+            local body
+            if [ "$maxlines" -gt 0 ]; then
+              body=$(head -n "$maxlines" "$f")
+            else
+              body=$(cat "$f")
+            fi
+            local chunk_size=$(( ${#header} + ${#body} + 30 ))
+            if (( CURRENT + chunk_size > LIMIT )); then
+              echo "[SKIP] $f" >&2
+              return 0
+            fi
+            {
+              echo ""
+              echo "$header"
+              echo '```'
+              echo "$body"
+              echo '```'
+            } >> "$REPORT"
+            CURRENT=$(( CURRENT + chunk_size ))
+            echo "[OK $(printf '%5d' "$chunk_size")B] $f" >&2
+          }
+
+          emit_glob() {
+            local pattern="$1" label="$2" maxlines="${3:-0}"
+            for f in $pattern; do
+              [ -f "$f" ] && emit_file "$f" "$label" "$maxlines"
+            done
+          }
+
+          # ── header ──
+          {
+            echo "# SeekBar & Menu Audit – Source Extract"
+            echo "# Branch : QwenCode"
+            echo "# Commit : $(git rev-parse HEAD)"
+            echo "# Date   : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "# Deps   : material=1.12.0  preference=1.2.1  minSdk=21  targetSdk=35"
+          } > "$REPORT"
+          CURRENT=$(file_size "$REPORT")
+
+          # ════════════════════════════════════════════════════════
+          #  S1 – SeekBar / Slider 样式审计（最高优先级）
+          # ════════════════════════════════════════════════════════
+
+          # 1a. 主题文件（SeekBar 样式继承链）
+          emit_glob "app/src/main/res/values/themes.xml"       "S1-THEME" 0
+          emit_glob "app/src/main/res/values/styles.xml"       "S1-THEME" 0
+          emit_glob "app/src/main/res/values-night/themes.xml" "S1-THEME" 0
+          emit_glob "app/src/main/res/values-night/styles.xml" "S1-THEME" 0
+
+          # 1b. 颜色资源（动态取色 / accent 引用）
+          emit_glob "app/src/main/res/values/colors.xml"       "S1-COLOR" 0
+          emit_glob "app/src/main/res/values-night/colors.xml" "S1-COLOR" 0
+
+          # 1c. Preference 自定义布局（SeekBar widget 布局）
+          emit_glob "app/src/main/res/layout/preference_widget_seekbar*.xml"       "S1-SEEKBAR-LAYOUT" 0
+          emit_glob "app/src/main/res/layout/preference_widget_seekbar_material*.xml" "S1-SEEKBAR-LAYOUT" 0
+          emit_glob "app/src/main/res/layout/*seekbar*.xml"    "S1-SEEKBAR-LAYOUT" 0
+          emit_glob "app/src/main/res/layout/*slider*.xml"     "S1-SLIDER-LAYOUT" 0
+
+          # 1d. Preference XML（SeekBarPreference 定义）
+          emit_glob "app/src/main/res/xml/*.xml" "S1-PREF-XML" 0
+
+          # 1e. 所有布局文件（确认 include 链和完整结构）
+          emit_glob "app/src/main/res/layout/*.xml" "S1-ALL-LAYOUT" 0
+
+          # ════════════════════════════════════════════════════════
+          #  S2 – 菜单 / Toolbar / i18n 审计
+          # ════════════════════════════════════════════════════════
+
+          # 2a. 现有 menu XML（如果存在）
+          emit_glob "app/src/main/res/menu/*.xml" "S2-MENU" 0
+
+          # 2b. 字符串资源（所有语言 – i18n 审计核心）
+          emit_glob "app/src/main/res/values/strings.xml"     "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-zh*/strings.xml" "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-ja*/strings.xml" "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-ko*/strings.xml" "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-de*/strings.xml" "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-fr*/strings.xml" "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-es*/strings.xml" "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-pt*/strings.xml" "S2-STRINGS" 0
+          emit_glob "app/src/main/res/values-ru*/strings.xml" "S2-STRINGS" 0
+
+          # 2c. 数组资源（字体族 / 特性类型）
+          emit_glob "app/src/main/res/values/arrays.xml"  "S2-ARRAYS" 0
+          emit_glob "app/src/main/res/values/array.xml"   "S2-ARRAYS" 0
+
+          # 2d. Drawable 图标（三点菜单图标 / 现有图标）
+          emit_glob "app/src/main/res/drawable/*.xml" "S2-DRAWABLE" 0
+
+          # ════════════════════════════════════════════════════════
+          #  S3 – 核心逻辑代码
+          # ════════════════════════════════════════════════════════
+
+          # 3a. 所有 Kotlin 源文件
+          emit_glob "app/src/main/java/**/*.kt" "S3-KOTLIN" 0
+
+          # 3b. 所有 Java 源文件
+          emit_glob "app/src/main/java/**/*.java" "S3-JAVA" 0
+
+          # ════════════════════════════════════════════════════════
+          #  S4 – 构建配置 & 清单
+          # ════════════════════════════════════════════════════════
+
+          emit_file "app/build.gradle.kts"          "S4-DEP" 0
+          emit_file "gradle/libs.versions.toml"     "S4-DEP" 0
+          emit_file "app/src/main/AndroidManifest.xml" "S4-MANIFEST" 0
+
+          # ════════════════════════════════════════════════════════
+          #  S5 – 补充：目录结构快照（确认无遗漏文件）
+          # ════════════════════════════════════════════════════════
+
+          {
+            echo ""
+            echo "## [S5-TREE] Full resource tree"
+            echo '```'
+            find app/src/main/res -type f | sort
+            echo '```'
+            echo ""
+            echo "## [S5-TREE] Full source tree"
+            echo '```'
+            find app/src/main/java -type f | sort
+            echo '```'
+          } >> "$REPORT"
+
+          # ── footer ──
+          {
+            echo ""
+            echo "# ── END OF REPORT ──"
+            echo "# Total size: $(file_size "$REPORT") / ${LIMIT} bytes"
+          } >> "$REPORT"
+
+          echo "========================================"
+          echo " Final size: $(file_size "$REPORT") bytes"
+          echo "========================================"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seekbar-menu-audit
+          path: seekbar_menu_audit.txt
+          retention-days: 14
+          if-no-files-found: error
