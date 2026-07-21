@@ -5,8 +5,8 @@ import android.util.AttributeSet
 import android.widget.TextView
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
-import com.google.android.material.slider.LabelBehavior
 import com.google.android.material.slider.Slider
+import com.google.android.material.slider.Slider.LabelBehavior
 
 class SliderPreference @JvmOverloads constructor(
     context: Context,
