@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.text.InputType
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
@@ -25,6 +26,8 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.preference.SimpleMenuPreference
 import java.io.File
@@ -251,6 +254,59 @@ class OptionsFragment : PreferenceFragmentCompat() {
         setNegativeButton(android.R.string.cancel) { _, _ -> return@setNegativeButton }
     }
 
+
+    // ═══ MD3 EditTextPreference 对话框接管 ═══
+    override fun onDisplayPreferenceDialog(preference: Preference) {
+        if (preference is EditTextPreference) {
+            showMd3EditTextDialog(preference)
+        } else {
+            super.onDisplayPreferenceDialog(preference)
+        }
+    }
+
+    private fun showMd3EditTextDialog(preference: EditTextPreference) {
+        val context = requireContext()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_edit_text_md3, null)
+        val textInputLayout = dialogView.findViewById<TextInputLayout>(R.id.md3_edit_text_layout)
+        val textInputEditText = dialogView.findViewById<TextInputEditText>(R.id.md3_edit_text)
+
+        // Hint: 使用 Preference 的 title（天然 i18n）
+        textInputLayout.hint = preference.title
+
+        // 预设值回显
+        val currentValue = preference.text
+        if (!currentValue.isNullOrEmpty()) {
+            textInputEditText.setText(currentValue)
+            textInputEditText.setSelection(currentValue.length)
+        }
+
+        // 根据 Preference key 设置 InputType
+        when (preference.key) {
+            Constants.PREF_TTC_INDEX, Constants.PREF_TEXT_SIZE -> {
+                textInputEditText.inputType = InputType.TYPE_CLASS_NUMBER
+            }
+            else -> {
+                textInputEditText.inputType = InputType.TYPE_CLASS_TEXT
+            }
+        }
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(preference.dialogTitle ?: preference.title)
+            .setView(dialogView)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val newValue = textInputEditText.text?.toString() ?: ""
+                if (preference.callChangeListener(newValue)) {
+                    preference.text = newValue
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+            .apply {
+                window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+            }
+    }
+    // ═══ MD3 EditTextPreference 对话框接管结束 ═══
+
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.options, rootKey)
     }
@@ -325,29 +381,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             val unsupportedAndroid = findPreference<Preference>(Constants.PREF_UNSUPPORTED_ANDROID)
             unsupportedAndroid?.isVisible = false
         }
-
-        ttcIndex?.setOnBindEditTextListener { editText ->
-            editText.inputType = InputType.TYPE_CLASS_NUMBER
-            // Apply MD3 styling to the EditText in dialog
-            editText.setPaddingRelative(
-                editText.paddingStart,
-                editText.paddingTop,
-                editText.paddingEnd,
-                editText.paddingBottom
-            )
-        }
-
         textSize?.apply {
-            setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_NUMBER
-                // Apply MD3 styling to the EditText in dialog
-                editText.setPaddingRelative(
-                    editText.paddingStart,
-                    editText.paddingTop,
-                    editText.paddingEnd,
-                    editText.paddingBottom
-                )
-            }
             setOnPreferenceChangeListener { _, newValue ->
                 if (newValue.toString().toFloatOrNull() != null) {
                     previewContent?.textSize = newValue.toString().toFloat()

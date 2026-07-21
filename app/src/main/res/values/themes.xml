@@ -7,7 +7,11 @@
         
         <!-- Apply MD3 preference theme with dialog styling -->
         <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
+        <!-- MD3 dialog styling: BOTH prefixed and non-prefixed for full coverage -->
         <item name="android:dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="android:alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <!-- ↓ 关键修复：appcompat AlertDialog.Builder 解析的是无前缀版本 -->
+        <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <item name="dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
     </style>
 </resources>
