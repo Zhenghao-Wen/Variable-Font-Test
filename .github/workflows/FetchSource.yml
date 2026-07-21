@@ -2,6 +2,9 @@ name: Extract Post-Fix Source for Diagnosis
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - QwenMirror
 
 jobs:
   extract:
