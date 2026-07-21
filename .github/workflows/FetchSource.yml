@@ -2,6 +2,9 @@ name: Extract Source for SeekBar & Menu Audit
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - QwenMirror
 
 jobs:
   extract:
