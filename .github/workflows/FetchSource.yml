@@ -23,6 +23,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          shopt -s globstar nullglob   # 修复递归通配符和空匹配
+
+          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
 
           REPORT="seekbar_menu_audit.txt"
           LIMIT=51200
@@ -36,9 +39,15 @@ jobs:
             local header="## [$label] $f"
             local body
             if [ "$maxlines" -gt 0 ]; then
-              body=$(head -n "$maxlines" "$f")
+              body=$(head -n "$maxlines" "$f" 2>/dev/null) || {
+                echo "[WARN] Cannot read first $maxlines lines of $f, skipping" >&2
+                return 0
+              }
             else
-              body=$(cat "$f")
+              body=$(cat "$f" 2>/dev/null) || {
+                echo "[WARN] Cannot read $f, skipping" >&2
+                return 0
+              }
             fi
             local chunk_size=$(( ${#header} + ${#body} + 30 ))
             if (( CURRENT + chunk_size > LIMIT )); then
@@ -59,7 +68,10 @@ jobs:
           emit_glob() {
             local pattern="$1" label="$2" maxlines="${3:-0}"
             for f in $pattern; do
-              [ -f "$f" ] && emit_file "$f" "$label" "$maxlines"
+              # 使用 if 避免 [ 失败触发 set -e
+              if [ -f "$f" ]; then
+                emit_file "$f" "$label" "$maxlines"
+              fi
             done
           }
 
