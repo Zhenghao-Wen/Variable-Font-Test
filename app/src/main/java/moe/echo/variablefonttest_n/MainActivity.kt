@@ -1,8 +1,6 @@
 package moe.echo.variablefonttest_n
 
 import android.os.Build
-import android.view.Menu
-import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
@@ -20,11 +18,10 @@ import com.google.android.material.color.DynamicColors
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Apply dynamic colors for Android 12+ before setContentView
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             DynamicColors.applyToActivityIfAvailable(this)
         }
-        
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -95,31 +92,31 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // ── Toolbar menu setup ──
+        // ── Toolbar 菜单：仅操作 toolbar.menu，不使用 onCreateOptionsMenu ──
         val toolbar: MaterialToolbar? = findViewById(R.id.toolbar)
-        toolbar?.setOnMenuItemClickListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.action_enable_md3_slider -> {
-                    menuItem.isChecked = !menuItem.isChecked
-                    PreferenceManager.getDefaultSharedPreferences(this)
-                        .edit()
-                        .putBoolean(Constants.PREF_USE_MD3_SLIDER, menuItem.isChecked)
-                        .apply()
-                    // Recreate to rebuild preference screen with new slider mode
-                    recreate()
-                    true
+        toolbar?.let { tb ->
+            // 从 SharedPreferences 同步 checkbox 状态到 Toolbar 的菜单实例
+            val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+            val useMd3Slider = prefs.getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+            tb.menu.findItem(R.id.action_enable_md3_slider)?.isChecked = useMd3Slider
+            tb.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.action_enable_md3_slider -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_USE_MD3_SLIDER, newState)
+                            .apply()
+                        recreate()
+                        true
+                    }
+                    else -> false
                 }
-                else -> false
             }
         }
     }
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        // Sync checkbox state with stored preference
-        val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(this)
-            .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
-        menu.findItem(R.id.action_enable_md3_slider)?.isChecked = useMd3Slider
-        return true
-    }
+    // ── 已删除 onCreateOptionsMenu ──
+    // 原因：MaterialToolbar 的 app:menu 由 Toolbar 自行 inflate，
+    // onCreateOptionsMenu 会创建第二个独立 Menu 实例，
+    // 导致 checkbox 状态写入错误的 Menu 对象。
 }

@@ -552,6 +552,22 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     sliderPref.order = order
                     category.addPreference(sliderPref)
                 }
+                // ── 修复位置：为所有项分配显式 order ──
+                var orderIdx = 0
+                category.forEach { pref ->
+                    when (pref.key) {
+                        Constants.PREF_UNSUPPORTED_ANDROID -> pref.order = orderIdx++
+                        Constants.PREF_VARIATION_ITALIC -> pref.order = orderIdx++
+                        Constants.PREF_VARIATION_OPTICAL_SIZE -> pref.order = orderIdx++
+                        Constants.PREF_VARIATION_SLANT -> pref.order = orderIdx++
+                        Constants.PREF_VARIATION_WIDTH -> pref.order = orderIdx++
+                        Constants.PREF_VARIATION_WEIGHT -> pref.order = orderIdx++
+                        Constants.PREF_VARIATION_EDITOR -> pref.order = orderIdx++
+                        Constants.PREF_ADD_FONT_VARIATION -> pref.order = orderIdx++
+                        Constants.PREF_EDIT_VARIATION -> pref.order = orderIdx++
+                        else -> pref.order = orderIdx++
+                    }
+                }
             }
         } else {
             // Default: use legacy SeekBar with original listeners

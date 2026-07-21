@@ -4,7 +4,7 @@
     <style name="Theme.VariableFontTest" parent="@style/Theme.Material3.DayNight.NoActionBar">
         <!-- Enable edge-to-edge display -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
-        
+
         <!-- Apply MD3 preference theme with dialog styling -->
         <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
         <!-- MD3 dialog styling: BOTH prefixed and non-prefixed for full coverage -->
@@ -13,5 +13,14 @@
         <!-- ↓ 关键修复：appcompat AlertDialog.Builder 解析的是无前缀版本 -->
         <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        
+        <!-- 修复旧版 SeekBar 饱和度：强制 progressTint/thumbTint 使用 colorPrimary -->
+        <item name="android:seekBarStyle">@style/Widget.App.SeekBar.MD3Tint</item>
+    </style>
+
+    <style name="Widget.App.SeekBar.MD3Tint" parent="Widget.AppCompat.SeekBar">
+        <item name="android:progressTint">?attr/colorPrimary</item>
+        <item name="android:thumbTint">?attr/colorPrimary</item>
+        <item name="android:progressBackgroundTint">?attr/colorSurfaceContainerHighest</item>
     </style>
 </resources>
