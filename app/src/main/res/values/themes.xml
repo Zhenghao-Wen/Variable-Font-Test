@@ -10,17 +10,17 @@
         <!-- MD3 dialog styling: BOTH prefixed and non-prefixed for full coverage -->
         <item name="android:dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="android:alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
-        <!-- ↓ 关键修复：appcompat AlertDialog.Builder 解析的是无前缀版本 -->
         <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
-        
-        <!-- 修复旧版 SeekBar 饱和度：强制 progressTint/thumbTint 使用 colorPrimary -->
+
+        <!-- ══ 修复旧版 SeekBar 饱和度 ══ 强制 SeekBar 的 progressTint/thumbTint 解析到 ?attr/colorPrimary
+             （暗色动态取色 = system_accent1_200），而非被 PreferenceThemeOverlay 降级到 colorPrimaryContainer（system_accent1_100） -->
         <item name="android:seekBarStyle">@style/Widget.App.SeekBar.MD3Tint</item>
     </style>
 
+    <!-- 旧版 SeekBar 的 MD3 色彩修正 -->
     <style name="Widget.App.SeekBar.MD3Tint" parent="Widget.AppCompat.SeekBar">
         <item name="android:progressTint">?attr/colorPrimary</item>
         <item name="android:thumbTint">?attr/colorPrimary</item>
-        <item name="android:progressBackgroundTint">?attr/colorSurfaceContainerHighest</item>
     </style>
 </resources>

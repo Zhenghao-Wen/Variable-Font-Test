@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 匹配标准 preference_widget_seekbar_material.xml 的层级结构，
+     确保 Preference.onBindViewHolder 正确找到 icon_frame 并应用缩进，
+     同时确保 PreferenceCategory 的 ItemDecoration 正确计算 Divider 位置 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -11,30 +14,61 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <TextView
-        android:id="@android:id/title"
-        android:layout_width="wrap_content"
+    <!-- 标题行：icon_frame + title/summary -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:textAppearance="?android:attr/textAppearanceListItem"
-        android:ellipsize="marquee"
-        android:singleLine="true" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-    <TextView
-        android:id="@android:id/summary"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceListItemSecondary"
-        android:textColor="?android:attr/textColorSecondary"
-        android:maxLines="4" />
+        <!-- icon_frame：Preference.onBindViewHolder 查找此 ID 以控制缩进 -->
+        <FrameLayout
+            android:id="@android:id/icon_frame"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="56dp"
+            android:visibility="gone">
+            <ImageView
+                android:id="@android:id/icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
 
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingTop="16dp"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:id="@android:id/title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceListItem"
+                android:ellipsize="marquee"
+                android:singleLine="true" />
+
+            <TextView
+                android:id="@android:id/summary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceListItemSecondary"
+                android:textColor="?android:attr/textColorSecondary"
+                android:maxLines="4" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Slider 行：Slider + 右侧数值 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="12dp"
+        android:paddingBottom="12dp"
         android:clipChildren="false"
         android:clipToPadding="false">
 
