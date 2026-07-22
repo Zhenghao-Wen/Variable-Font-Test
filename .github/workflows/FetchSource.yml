@@ -1,150 +1,73 @@
-name: Extract Post-Fix Source for Diagnosis
+name: Verify LabelBehavior API
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - QwenMirror
 
 jobs:
-  extract:
+  verify:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout QwenCode branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: QwenCode
           fetch-depth: 1
 
-      - name: Build diagnosis report
-        shell: bash
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download material AAR and inspect
         run: |
-          set -euo pipefail
-          shopt -s nullglob   # 避免通配符无匹配时保留字面量
+          echo "=== Downloading material-1.12.0.aar ==="
+          curl -sL "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.12.0/material-1.12.0.aar" \
+            -o material.aar
 
-          # 可选：添加调试陷阱
-          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
+          echo ""
+          echo "=== Extracting classes.jar ==="
+          unzip -o material.aar classes.jar -d material_extracted
 
-          REPORT="postfix_diagnosis.txt"
-          LIMIT=51200
-          CURRENT=0
+          echo ""
+          echo "=== All classes in com.google.android.material.slider ==="
+          jar tf material_extracted/classes.jar | grep "com/google/android/material/slider/" | sort
 
-          file_size() { wc -c < "$1" 2>/dev/null || echo 0; }
+          echo ""
+          echo "=== Searching for LabelBehavior ==="
+          jar tf material_extracted/classes.jar | grep -i "labelbehavior" || echo "NOT FOUND as standalone class"
 
-          emit_file() {
-            local f="$1" label="$2" maxlines="${3:-0}"
-            [ -f "$f" ] || { echo "[MISSING] $f" >&2; return 0; }
-            local header="## [$label] $f"
-            local body
-            if [ "$maxlines" -gt 0 ]; then
-              body=$(head -n "$maxlines" "$f" 2>/dev/null) || {
-                echo "[WARN] Cannot read first $maxlines lines of $f, skipping" >&2
-                return 0
-              }
-            else
-              body=$(cat "$f" 2>/dev/null) || {
-                echo "[WARN] Cannot read $f, skipping" >&2
-                return 0
-              }
-            fi
-            local chunk_size=$(( ${#header} + ${#body} + 30 ))
-            if (( CURRENT + chunk_size > LIMIT )); then
-              echo "[SKIP-SIZE] $f" >&2
-              return 0
-            fi
-            {
-              echo ""
-              echo "$header"
-              echo '```'
-              echo "$body"
-              echo '```'
-            } >> "$REPORT"
-            CURRENT=$(( CURRENT + chunk_size ))
-            echo "[OK $(printf '%5d' "$chunk_size")B] $f" >&2
-          }
+          echo ""
+          echo "=== Searching for BaseSlider ==="
+          jar tf material_extracted/classes.jar | grep -i "baseslider" | head -20
 
-          # ── header ──
-          {
-            echo "# Post-Fix Diagnosis – Source Extract"
-            echo "# Branch : QwenCode"
-            echo "# Commit : $(git rev-parse HEAD)"
-            echo "# Date   : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          } > "$REPORT"
-          CURRENT=$(file_size "$REPORT")
+          echo ""
+          echo "=== Checking Slider class for LABEL_ constants ==="
+          mkdir -p classcheck
+          cd classcheck
+          jar xf ../material_extracted/classes.jar com/google/android/material/slider/Slider.class 2>/dev/null || true
+          jar xf ../material_extracted/classes.jar com/google/android/material/slider/BaseSlider.class 2>/dev/null || true
+          if [ -f com/google/android/material/slider/BaseSlider.class ]; then
+            echo "--- BaseSlider fields ---"
+            javap -p com/google/android/material/slider/BaseSlider.class 2>/dev/null | grep -i "label\|FLOATING\|WITHIN\|GONE" || echo "No label constants found"
+          fi
+          if [ -f com/google/android/material/slider/Slider.class ]; then
+            echo "--- Slider fields ---"
+            javap -p com/google/android/material/slider/Slider.class 2>/dev/null | grep -i "label\|FLOATING\|WITHIN\|GONE" || echo "No label constants found"
+          fi
 
-          # ════════════════════════════════════════════════════════
-          #  D1 – 核心逻辑（最高优先级，必须完整）
-          # ════════════════════════════════════════════════════════
+          echo ""
+          echo "=== Checking for LabelBehavior inner class ==="
+          jar tf ../material_extracted/classes.jar | grep -i "BaseSlider\$" | head -20
 
-          emit_file "app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt" "D1-CORE" 0
-          emit_file "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt" "D1-CORE" 0
-          emit_file "app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt"     "D1-CORE" 0
-          emit_file "app/src/main/java/moe/echo/variablefonttest_n/Constants.kt"        "D1-CORE" 0
+          echo ""
+          echo "=== Current SliderPreference.kt (error source) ==="
+          cat ../app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
 
-          # ════════════════════════════════════════════════════════
-          #  D2 – 布局 & 菜单 & 主题
-          # ════════════════════════════════════════════════════════
-
-          emit_file "app/src/main/res/layout/preference_widget_slider.xml" "D2-LAYOUT" 0
-          emit_file "app/src/main/res/layout/activity_main.xml"           "D2-LAYOUT" 0
-          emit_file "app/src/main/res/menu/main_menu.xml"                 "D2-MENU" 0
-          emit_file "app/src/main/res/values/themes.xml"                  "D2-THEME" 0
-          emit_file "app/src/main/res/values-night/themes.xml"            "D2-THEME" 0
-          emit_file "app/src/main/res/values/styles.xml"                  "D2-THEME" 0
-          emit_file "app/src/main/res/values/colors.xml"                  "D2-COLOR" 0
-
-          # ════════════════════════════════════════════════════════
-          #  D3 – Preference XML & 字符串
-          # ════════════════════════════════════════════════════════
-
-          emit_file "app/src/main/res/xml/options.xml"              "D3-PREF" 0
-          emit_file "app/src/main/res/values/strings.xml"           "D3-STR" 0
-          emit_file "app/src/main/res/values-zh-rCN/strings.xml"    "D3-STR" 0
-
-          # ════════════════════════════════════════════════════════
-          #  D4 – 补充：所有布局文件 & drawable（确认无遗漏）
-          # ════════════════════════════════════════════════════════
-
-          # 改用 if 结构避免 `[ -f ] && emit_file` 失败时触发 set -e
-          for f in app/src/main/res/layout/*.xml; do
-            if [ -f "$f" ]; then
-              emit_file "$f" "D4-LAYOUT" 0
-            fi
-          done
-
-          # ════════════════════════════════════════════════════════
-          #  D5 – 目录树快照
-          # ════════════════════════════════════════════════════════
-
-          {
-            echo ""
-            echo "## [D5-TREE] Resource tree"
-            echo '```'
-            find app/src/main/res -type f | sort
-            echo '```'
-            echo ""
-            echo "## [D5-TREE] Source tree"
-            echo '```'
-            find app/src/main/java -type f | sort
-            echo '```'
-          } >> "$REPORT"
-
-          # ── footer ──
-          {
-            echo ""
-            echo "# ── END ──"
-            echo "# Total: $(file_size "$REPORT") / ${LIMIT} bytes"
-          } >> "$REPORT"
-
-          echo "Final size: $(file_size "$REPORT") bytes"
-
-      - name: Upload artifact
+      - name: Upload inspection log
         uses: actions/upload-artifact@v4
         with:
-          name: postfix-diagnosis
-          path: postfix_diagnosis.txt
-          retention-days: 14
-          if-no-files-found: error
+          name: labelbehavior-inspection
+          path: |
+            material_extracted/
+            classcheck/
+          retention-days: 7
