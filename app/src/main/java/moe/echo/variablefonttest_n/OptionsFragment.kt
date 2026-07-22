@@ -334,11 +334,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val customFont: Preference? = findPreference(Constants.PREF_CUSTOM_FONT)
 
         val variations: PreferenceCategory? = findPreference(Constants.PREF_CATEGORY_VARIATIONS)
-        val ital: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_ITALIC)
-        val opsz: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_OPTICAL_SIZE)
-        val slnt: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_SLANT)
-        val wdth: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WIDTH)
-        val wght: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WEIGHT)
+        val ital: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_ITALIC)
+        val opsz: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_OPTICAL_SIZE)
+        val slnt: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_SLANT)
+        val wdth: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WIDTH)
+        val wght: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WEIGHT)
         val variationEditor: EditTextPreference? = findPreference(Constants.PREF_VARIATION_EDITOR)
         val addVariation: Preference? = findPreference(Constants.PREF_ADD_FONT_VARIATION)
         val editVariation: Preference? = findPreference(Constants.PREF_EDIT_VARIATION)
@@ -466,13 +466,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 setVariation(fontVariationSettings.toFeatures())
                 true
             } else false
-        }
-
-        // ── 修复旧版 SeekBar 饱和度：强制使用 colorPrimary 而非 colorSecondary ──
-        // PreferenceThemeOverlay 将 colorControlActivated 重定向到 colorSecondary，
-        // android:seekBarStyle 无法覆盖。唯一有效方案：通过自定义布局在 XML 属性层直接写死 tint。
-        listOf(ital, opsz, slnt, wdth, wght).forEach { pref ->
-            pref?.layoutResource = R.layout.preference_widget_seekbar_md3
         }
 
         // ── Check MD3 Slider toggle ──
