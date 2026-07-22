@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 基于 preference_widget_seekbar_material.xml 的精确副本。
-     唯一修改：SeekBar 上直接设置 progressTint/thumbTint 为 ?attr/colorPrimary，
-     绕过 PreferenceThemeOverlay 将 colorControlActivated 重定向到 colorSecondary 的问题。
-     XML 属性优先级高于任何 theme/style 解析，确保生效。 -->
+<!-- 基于 preference_widget_seekbar_material.xml 的结构。
+     修改 1：SeekBar 上直接设置 progressTint/thumbTint 为 ?attr/colorPrimary
+     修改 2：标题/摘要区域使用 wrap_content 高度（修复 layout_weight 在
+             wrap_content 父容器中不生效导致的行距压缩问题） -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:orientation="horizontal"
     android:minHeight="?android:attr/listPreferredItemHeightSmall"
     android:gravity="center_vertical"
     android:paddingStart="?android:attr/listPreferredItemPaddingStart"
@@ -38,10 +39,11 @@
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <RelativeLayout
+        <!-- 修复：使用 wrap_content 替代 0dp+layout_weight -->
+        <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
             <TextView
                 android:id="@android:id/title"
@@ -55,12 +57,10 @@
                 android:id="@android:id/summary"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_below="@android:id/title"
-                android:layout_alignStart="@android:id/title"
                 android:textAppearance="?android:attr/textAppearanceListItemSecondary"
                 android:textColor="?android:attr/textColorSecondary"
                 android:maxLines="4" />
-        </RelativeLayout>
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -69,7 +69,6 @@
             android:clipChildren="false"
             android:clipToPadding="false">
 
-            <!-- ══ 关键修改：直接写死 tint 为 colorPrimary ══ -->
             <SeekBar
                 android:id="@+id/seekbar"
                 android:layout_width="0dp"
