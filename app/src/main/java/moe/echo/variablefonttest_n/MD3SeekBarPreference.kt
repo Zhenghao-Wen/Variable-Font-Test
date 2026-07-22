@@ -20,7 +20,10 @@ import com.google.android.material.color.MaterialColors
 class MD3SeekBarPreference @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyleAttr: Int = 0
+    // 关键修复：必须传入 seekBarPreferenceStyle，否则布局回退为
+    // preference_material（不含 @+id/seekbar），导致 onBindViewHolder 闪退。
+    // 标准 SeekBarPreference(Context, AttributeSet) 构造函数内部也是传入此值。
+    defStyleAttr: Int = androidx.preference.R.attr.seekBarPreferenceStyle
 ) : SeekBarPreference(context, attrs, defStyleAttr) {
 
     override fun onBindViewHolder(view: PreferenceViewHolder) {
