@@ -1,4 +1,4 @@
-name: Verify SeekBar & Slider Layout Fix
+name: Verify SeekBar Tint & Slider Indent Fix
 
 on:
   workflow_dispatch:
@@ -22,9 +22,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          REPORT="layout_fix_verify.txt"
+          REPORT="tint_indent_verify.txt"
 
-          # 辅助：安全读取文件内容
+          # 安全读取文件内容（若不存在则输出提示）
           safe_cat() {
             if [ -f "$1" ]; then
               cat "$1"
@@ -33,125 +33,116 @@ jobs:
             fi
           }
 
+          # 安全执行 sed（若文件不存在则输出提示）
+          safe_sed() {
+            if [ -f "$1" ]; then
+              sed -n "$2" "$1"
+            else
+              echo "[FILE NOT FOUND] $1"
+            fi
+          }
+
           {
-            echo "# Layout & SeekBar Fix Verification"
+            echo "# SeekBar Tint & Slider Indent Fix Verification"
             echo "# Commit: $(git rev-parse HEAD)"
             echo "# Date: $(date -u)"
             echo ""
 
-            echo "## [CHECK-1] values/themes.xml"
-            echo '```xml'
-            safe_cat app/src/main/res/values/themes.xml
+            echo "## [CHECK-1] preference_widget_seekbar_md3.xml exists and has colorPrimary tint"
             echo '```'
-            echo ""
-
-            echo "## [CHECK-2] values-night/themes.xml"
-            echo '```xml'
-            safe_cat app/src/main/res/values-night/themes.xml
-            echo '```'
-            echo ""
-
-            echo "## [CHECK-3] preference_widget_slider.xml"
-            echo '```xml'
-            safe_cat app/src/main/res/layout/preference_widget_slider.xml
-            echo '```'
-            echo ""
-
-            echo "## [CHECK-4] options.xml (SeekBarPreference entries)"
-            echo '```xml'
-            if [ -f app/src/main/res/xml/options.xml ]; then
-              grep -A 8 "SeekBarPreference" app/src/main/res/xml/options.xml || echo "(No SeekBarPreference found)"
+            if [ -f "app/src/main/res/layout/preference_widget_seekbar_md3.xml" ]; then
+              echo "FILE EXISTS: YES"
+              grep -n "progressTint\|thumbTint\|colorPrimary" app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null || echo "TINT ATTRIBUTES: NOT FOUND"
             else
-              echo "[FILE NOT FOUND] app/src/main/res/xml/options.xml"
+              echo "FILE EXISTS: NO ← CRITICAL FAILURE"
             fi
             echo '```'
             echo ""
 
-            echo "## [CHECK-5] SliderPreference.kt"
+            echo "## [CHECK-2] OptionsFragment.kt sets layoutResource"
+            echo '```'
+            grep -n "layoutResource.*preference_widget_seekbar_md3\|preference_widget_seekbar_md3" \
+              app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null \
+              || echo "layoutResource assignment: NOT FOUND ← CRITICAL FAILURE"
+            echo '```'
+            echo ""
+
+            echo "## [CHECK-3] SliderPreference.kt sets isIconSpaceReserved"
+            echo '```'
+            grep -n "isIconSpaceReserved" \
+              app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null \
+              || echo "isIconSpaceReserved: NOT FOUND ← CRITICAL FAILURE"
+            echo '```'
+            echo ""
+
+            echo "## [CHECK-4] Full preference_widget_seekbar_md3.xml"
+            echo '```xml'
+            safe_cat app/src/main/res/layout/preference_widget_seekbar_md3.xml
+            echo '```'
+            echo ""
+
+            echo "## [CHECK-5] SliderPreference.kt init block"
             echo '```kotlin'
-            safe_cat app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+            safe_sed app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt '/init {/,/}/p'
             echo '```'
             echo ""
 
-            echo "## [CHECK-6] Automated checks"
+            echo "## [CHECK-6] OptionsFragment.kt – context around layoutResource"
+            echo '```kotlin'
+            grep -n -B 2 -A 2 "preference_widget_seekbar_md3" \
+              app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null \
+              || echo "NOT FOUND"
             echo '```'
-            # 每个检查使用 if 判断，避免 grep 失败导致脚本退出
-            # Check 1
-            if grep -q "android:seekBarStyle" app/src/main/res/values/themes.xml 2>/dev/null; then
-              echo "PASS: android:seekBarStyle found in values/themes.xml"
+            echo ""
+
+            echo "## [CHECK-7] Automated pass/fail"
+            echo '```'
+            PASS=0; FAIL=0
+
+            if [ -f "app/src/main/res/layout/preference_widget_seekbar_md3.xml" ]; then
+              echo "PASS: preference_widget_seekbar_md3.xml exists"; PASS=$((PASS+1))
             else
-              echo "FAIL: android:seekBarStyle NOT found in values/themes.xml"
+              echo "FAIL: preference_widget_seekbar_md3.xml missing"; FAIL=$((FAIL+1))
             fi
 
-            # Check 2
-            if grep -q "Widget.App.SeekBar.MD3Tint" app/src/main/res/values/themes.xml 2>/dev/null; then
-              echo "PASS: Widget.App.SeekBar.MD3Tint style defined"
+            if grep -q 'android:progressTint="?attr/colorPrimary"' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
+              echo "PASS: progressTint=colorPrimary in layout"; PASS=$((PASS+1))
             else
-              echo "FAIL: Widget.App.SeekBar.MD3Tint style NOT defined"
+              echo "FAIL: progressTint=colorPrimary NOT in layout"; FAIL=$((FAIL+1))
             fi
 
-            # Check 3
-            if grep -A 3 "Widget.App.SeekBar.MD3Tint" app/src/main/res/values/themes.xml 2>/dev/null | grep -q "colorPrimary"; then
-              echo "PASS: colorPrimary referenced in SeekBar style"
+            if grep -q 'android:thumbTint="?attr/colorPrimary"' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
+              echo "PASS: thumbTint=colorPrimary in layout"; PASS=$((PASS+1))
             else
-              echo "FAIL: colorPrimary NOT referenced in SeekBar style"
+              echo "FAIL: thumbTint=colorPrimary NOT in layout"; FAIL=$((FAIL+1))
             fi
 
-            # Check 4
-            if grep -q "icon_frame" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
-              echo "PASS: icon_frame found in preference_widget_slider.xml"
+            if grep -q 'seekbar' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
+              echo "PASS: SeekBar id=seekbar in layout"; PASS=$((PASS+1))
             else
-              echo "FAIL: icon_frame NOT found in preference_widget_slider.xml"
+              echo "FAIL: SeekBar id=seekbar NOT in layout"; FAIL=$((FAIL+1))
             fi
 
-            # Check 5
-            if grep -q "@android:id/icon" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
-              echo "PASS: @android:id/icon found in preference_widget_slider.xml"
+            if grep -q 'seekbar_value' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
+              echo "PASS: seekbar_value TextView in layout"; PASS=$((PASS+1))
             else
-              echo "FAIL: @android:id/icon NOT found in preference_widget_slider.xml"
+              echo "FAIL: seekbar_value TextView NOT in layout"; FAIL=$((FAIL+1))
             fi
 
-            # Check 6
-            if grep -q "@android:id/title" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
-              echo "PASS: @android:id/title found"
+            if grep -q 'preference_widget_seekbar_md3' app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null; then
+              echo "PASS: OptionsFragment references custom layout"; PASS=$((PASS+1))
             else
-              echo "FAIL: @android:id/title NOT found"
+              echo "FAIL: OptionsFragment does NOT reference custom layout"; FAIL=$((FAIL+1))
             fi
 
-            # Check 7
-            if grep -q "@android:id/summary" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
-              echo "PASS: @android:id/summary found"
+            if grep -q 'isIconSpaceReserved' app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null; then
+              echo "PASS: SliderPreference sets isIconSpaceReserved"; PASS=$((PASS+1))
             else
-              echo "FAIL: @android:id/summary NOT found"
+              echo "FAIL: SliderPreference does NOT set isIconSpaceReserved"; FAIL=$((FAIL+1))
             fi
 
-            # Check 8
-            if grep -q "slider_value" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
-              echo "PASS: slider_value found"
-            else
-              echo "FAIL: slider_value NOT found"
-            fi
-
-            # Check 9
-            if grep -q "import.*LabelBehavior" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null; then
-              echo "FAIL: LabelBehavior import still present (will not compile)"
-            else
-              echo "PASS: No LabelBehavior import"
-            fi
-
-            # Check 10
-            if grep -q "LABEL_FLOATING" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null; then
-              echo "PASS: LABEL_FLOATING constant defined"
-            else
-              echo "FAIL: LABEL_FLOATING constant NOT found"
-            fi
-
-            # Check 11
-            if grep -q "android:seekBarStyle" app/src/main/res/values-night/themes.xml 2>/dev/null; then
-              echo "PASS: android:seekBarStyle found in values-night/themes.xml"
-            else
-              echo "FAIL: android:seekBarStyle NOT found in values-night/themes.xml"
-            fi
+            echo ""
+            echo "RESULT: $PASS passed, $FAIL failed"
             echo '```'
           } > "$REPORT"
 
@@ -160,6 +151,6 @@ jobs:
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
-          name: layout-fix-verify
-          path: layout_fix_verify.txt
+          name: tint-indent-verify
+          path: tint_indent_verify.txt
           retention-days: 14
