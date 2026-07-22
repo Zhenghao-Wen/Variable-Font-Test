@@ -1,4 +1,4 @@
-name: Verify LabelBehavior API
+name: Diagnose LabelBehavior Error
 
 on:
   workflow_dispatch:
@@ -7,10 +7,14 @@ on:
       - QwenMirror
 
 jobs:
-  verify:
+  diagnose:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           ref: QwenCode
           fetch-depth: 1
@@ -21,56 +25,187 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Download material AAR and inspect
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve dependencies (download AARs)
         run: |
-          echo "=== Downloading material-1.12.0.aar ==="
-          curl -sL "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.12.0/material-1.12.0.aar" \
-            -o material.aar
+          chmod +x gradlew
+          ./gradlew app:dependencies --configuration releaseRuntimeClasspath 2>&1 | tail -80 || true
 
-          echo ""
-          echo "=== Extracting classes.jar ==="
-          unzip -o material.aar classes.jar -d material_extracted
+      - name: Inspect Material Components AAR
+        run: |
+          set -euo pipefail  # 保持严格模式，但关键命令加容错
 
-          echo ""
-          echo "=== All classes in com.google.android.material.slider ==="
-          jar tf material_extracted/classes.jar | grep "com/google/android/material/slider/" | sort
+          echo "══════════════════════════════════════════════"
+          echo " STEP 1: Locate Material Components AAR"
+          echo "══════════════════════════════════════════════"
+          AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1)
+          echo "AAR path: ${AAR:-NOT FOUND}"
 
-          echo ""
-          echo "=== Searching for LabelBehavior ==="
-          jar tf material_extracted/classes.jar | grep -i "labelbehavior" || echo "NOT FOUND as standalone class"
-
-          echo ""
-          echo "=== Searching for BaseSlider ==="
-          jar tf material_extracted/classes.jar | grep -i "baseslider" | head -20
-
-          echo ""
-          echo "=== Checking Slider class for LABEL_ constants ==="
-          mkdir -p classcheck
-          cd classcheck
-          jar xf ../material_extracted/classes.jar com/google/android/material/slider/Slider.class 2>/dev/null || true
-          jar xf ../material_extracted/classes.jar com/google/android/material/slider/BaseSlider.class 2>/dev/null || true
-          if [ -f com/google/android/material/slider/BaseSlider.class ]; then
-            echo "--- BaseSlider fields ---"
-            javap -p com/google/android/material/slider/BaseSlider.class 2>/dev/null | grep -i "label\|FLOATING\|WITHIN\|GONE" || echo "No label constants found"
-          fi
-          if [ -f com/google/android/material/slider/Slider.class ]; then
-            echo "--- Slider fields ---"
-            javap -p com/google/android/material/slider/Slider.class 2>/dev/null | grep -i "label\|FLOATING\|WITHIN\|GONE" || echo "No label constants found"
+          if [ -z "$AAR" ]; then
+            echo "AAR not in cache, attempting full resolve..."
+            ./gradlew app:prepareKotlinBuildScriptModel 2>&1 | tail -10 || true
+            AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1)
+            echo "AAR path (retry): ${AAR:-STILL NOT FOUND}"
           fi
 
+          if [ -n "$AAR" ]; then
+            mkdir -p /tmp/mat && cd /tmp/mat
+            cp "$AAR" material.aar
+            unzip -o material.aar classes.jar -d . 2>/dev/null || true
+
+            echo ""
+            echo "══════════════════════════════════════════════"
+            echo " STEP 2: All classes in slider package"
+            echo "══════════════════════════════════════════════"
+            jar tf classes.jar | grep "^com/google/android/material/slider/" | sort || echo "(none)"
+
+            echo ""
+            echo "══════════════════════════════════════════════"
+            echo " STEP 3: Search for LabelBehavior / Label*"
+            echo "══════════════════════════════════════════════"
+            jar tf classes.jar | grep -i "label" | sort || echo "(none)"
+            echo "---"
+            jar tf classes.jar | grep -i "LabelBehavior" | sort || echo "LabelBehavior: NOT FOUND in classes.jar"
+
+            echo ""
+            echo "══════════════════════════════════════════════"
+            echo " STEP 4: Slider nested classes"
+            echo "══════════════════════════════════════════════"
+            jar tf classes.jar | grep "slider/Slider\\\$" | sort || echo "(none)"
+            echo "---"
+            jar tf classes.jar | grep "slider/BaseSlider\\\$" | sort || echo "(none)"
+
+            echo ""
+            echo "══════════════════════════════════════════════"
+            echo " STEP 5: javap – Slider full public API"
+            echo "══════════════════════════════════════════════"
+            javap -cp classes.jar -public com.google.android.material.slider.Slider 2>&1 || true
+
+            echo ""
+            echo "══════════════════════════════════════════════"
+            echo " STEP 6: javap – BaseSlider full public API"
+            echo "══════════════════════════════════════════════"
+            javap -cp classes.jar -public com.google.android.material.slider.BaseSlider 2>&1 || true
+
+            echo ""
+            echo "══════════════════════════════════════════════"
+            echo " STEP 7: javap – LabelFormatter (if exists)"
+            echo "══════════════════════════════════════════════"
+            javap -cp classes.jar -public com.google.android.material.slider.LabelFormatter 2>&1 || echo "LabelFormatter: NOT FOUND"
+
+            echo ""
+            echo "══════════════════════════════════════════════"
+            echo " STEP 8: If LabelBehavior exists, inspect it"
+            echo "══════════════════════════════════════════════"
+            LB_CLASS=$(jar tf classes.jar | grep "LabelBehavior" | head -1)
+            if [ -n "$LB_CLASS" ]; then
+              CN=$(echo "$LB_CLASS" | sed 's/\.class$//' | tr '/' '.')
+              echo "Found: $CN"
+              javap -cp classes.jar -public -constants "$CN" 2>&1 || true
+            else
+              echo "LabelBehavior class NOT present in compiled AAR."
+              echo "This confirms @Retention(SOURCE) stripping."
+            fi
+          else
+            echo "FATAL: Could not locate Material AAR"
+          fi
+
+      - name: Get current source code
+        run: |
           echo ""
-          echo "=== Checking for LabelBehavior inner class ==="
-          jar tf ../material_extracted/classes.jar | grep -i "BaseSlider\$" | head -20
+          echo "══════════════════════════════════════════════"
+          echo " CURRENT SliderPreference.kt (with line numbers)"
+          echo "══════════════════════════════════════════════"
+          cat -n app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "File not found"
 
           echo ""
-          echo "=== Current SliderPreference.kt (error source) ==="
-          cat ../app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+          echo "══════════════════════════════════════════════"
+          echo " libs.versions.toml"
+          echo "══════════════════════════════════════════════"
+          cat gradle/libs.versions.toml || echo "File not found"
 
-      - name: Upload inspection log
+          echo ""
+          echo "══════════════════════════════════════════════"
+          echo " app/build.gradle.kts (dependencies block)"
+          echo "══════════════════════════════════════════════"
+          sed -n '/^dependencies/,/^}/p' app/build.gradle.kts || echo "File or block not found"
+
+      - name: Save report
+        run: |
+          # 重新收集所有信息并保存为文件，安全处理缺失文件
+          {
+            echo "# LabelBehavior Diagnosis Report"
+            echo "# Commit: $(git rev-parse HEAD)"
+            echo "# Date: $(date -u)"
+            echo ""
+
+            AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1)
+            if [ -n "$AAR" ]; then
+              # 确保临时目录存在并解压
+              mkdir -p /tmp/mat && cd /tmp/mat
+              cp "$AAR" material.aar 2>/dev/null || echo "Copy AAR failed" >&2
+              unzip -o material.aar classes.jar -d . 2>/dev/null || echo "Unzip failed" >&2
+
+              if [ -f classes.jar ]; then
+                echo "## slider package classes"
+                echo '```'
+                jar tf classes.jar | grep "^com/google/android/material/slider/" | sort || echo "(none)"
+                echo '```'
+
+                echo ""
+                echo "## LabelBehavior search"
+                echo '```'
+                jar tf classes.jar | grep -i "label" | sort || echo "(none)"
+                echo '```'
+
+                echo ""
+                echo "## Slider public API"
+                echo '```'
+                javap -cp classes.jar -public com.google.android.material.slider.Slider 2>&1 || echo "javap failed"
+                echo '```'
+
+                echo ""
+                echo "## BaseSlider public API"
+                echo '```'
+                javap -cp classes.jar -public com.google.android.material.slider.BaseSlider 2>&1 || echo "javap failed"
+                echo '```'
+
+                echo ""
+                echo "## LabelFormatter API"
+                echo '```'
+                javap -cp classes.jar -public com.google.android.material.slider.LabelFormatter 2>&1 || echo "LabelFormatter not found"
+                echo '```'
+              else
+                echo "classes.jar not extracted, skipping AAR analysis"
+              fi
+            else
+              echo "Material AAR not found, skipping AAR analysis"
+            fi
+
+            echo ""
+            echo "## SliderPreference.kt"
+            echo '```kotlin'
+            cat app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null || echo "File not found"
+            echo '```'
+
+            echo ""
+            echo "## libs.versions.toml"
+            echo '```'
+            cat gradle/libs.versions.toml 2>/dev/null || echo "File not found"
+            echo '```'
+
+            echo ""
+            echo "## dependencies block (build.gradle.kts)"
+            echo '```'
+            sed -n '/^dependencies/,/^}/p' app/build.gradle.kts 2>/dev/null || echo "Block not found"
+            echo '```'
+          } > labelbehavior_diagnosis.txt
+
+      - name: Upload report
         uses: actions/upload-artifact@v4
         with:
-          name: labelbehavior-inspection
-          path: |
-            material_extracted/
-            classcheck/
-          retention-days: 7
+          name: labelbehavior-diagnosis
+          path: labelbehavior_diagnosis.txt
+          retention-days: 14
