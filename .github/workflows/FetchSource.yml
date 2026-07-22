@@ -1,4 +1,4 @@
-name: Diagnose LabelBehavior Error
+name: Verify SeekBar & Slider Layout Fix
 
 on:
   workflow_dispatch:
@@ -7,205 +7,159 @@ on:
       - QwenMirror
 
 jobs:
-  diagnose:
+  verify:
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: QwenCode
           fetch-depth: 1
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Resolve dependencies (download AARs)
+      - name: Build verification report
+        shell: bash
         run: |
-          chmod +x gradlew
-          ./gradlew app:dependencies --configuration releaseRuntimeClasspath 2>&1 | tail -80 || true
+          set -euo pipefail
+          REPORT="layout_fix_verify.txt"
 
-      - name: Inspect Material Components AAR
-        run: |
-          set -euo pipefail  # 保持严格模式，但关键命令加容错
-
-          echo "══════════════════════════════════════════════"
-          echo " STEP 1: Locate Material Components AAR"
-          echo "══════════════════════════════════════════════"
-          AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1)
-          echo "AAR path: ${AAR:-NOT FOUND}"
-
-          if [ -z "$AAR" ]; then
-            echo "AAR not in cache, attempting full resolve..."
-            ./gradlew app:prepareKotlinBuildScriptModel 2>&1 | tail -10 || true
-            AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1)
-            echo "AAR path (retry): ${AAR:-STILL NOT FOUND}"
-          fi
-
-          if [ -n "$AAR" ]; then
-            mkdir -p /tmp/mat && cd /tmp/mat
-            cp "$AAR" material.aar
-            unzip -o material.aar classes.jar -d . 2>/dev/null || true
-
-            echo ""
-            echo "══════════════════════════════════════════════"
-            echo " STEP 2: All classes in slider package"
-            echo "══════════════════════════════════════════════"
-            jar tf classes.jar | grep "^com/google/android/material/slider/" | sort || echo "(none)"
-
-            echo ""
-            echo "══════════════════════════════════════════════"
-            echo " STEP 3: Search for LabelBehavior / Label*"
-            echo "══════════════════════════════════════════════"
-            jar tf classes.jar | grep -i "label" | sort || echo "(none)"
-            echo "---"
-            jar tf classes.jar | grep -i "LabelBehavior" | sort || echo "LabelBehavior: NOT FOUND in classes.jar"
-
-            echo ""
-            echo "══════════════════════════════════════════════"
-            echo " STEP 4: Slider nested classes"
-            echo "══════════════════════════════════════════════"
-            jar tf classes.jar | grep "slider/Slider\\\$" | sort || echo "(none)"
-            echo "---"
-            jar tf classes.jar | grep "slider/BaseSlider\\\$" | sort || echo "(none)"
-
-            echo ""
-            echo "══════════════════════════════════════════════"
-            echo " STEP 5: javap – Slider full public API"
-            echo "══════════════════════════════════════════════"
-            javap -cp classes.jar -public com.google.android.material.slider.Slider 2>&1 || true
-
-            echo ""
-            echo "══════════════════════════════════════════════"
-            echo " STEP 6: javap – BaseSlider full public API"
-            echo "══════════════════════════════════════════════"
-            javap -cp classes.jar -public com.google.android.material.slider.BaseSlider 2>&1 || true
-
-            echo ""
-            echo "══════════════════════════════════════════════"
-            echo " STEP 7: javap – LabelFormatter (if exists)"
-            echo "══════════════════════════════════════════════"
-            javap -cp classes.jar -public com.google.android.material.slider.LabelFormatter 2>&1 || echo "LabelFormatter: NOT FOUND"
-
-            echo ""
-            echo "══════════════════════════════════════════════"
-            echo " STEP 8: If LabelBehavior exists, inspect it"
-            echo "══════════════════════════════════════════════"
-            LB_CLASS=$(jar tf classes.jar | grep "LabelBehavior" | head -1)
-            if [ -n "$LB_CLASS" ]; then
-              CN=$(echo "$LB_CLASS" | sed 's/\.class$//' | tr '/' '.')
-              echo "Found: $CN"
-              javap -cp classes.jar -public -constants "$CN" 2>&1 || true
+          # 辅助：安全读取文件内容
+          safe_cat() {
+            if [ -f "$1" ]; then
+              cat "$1"
             else
-              echo "LabelBehavior class NOT present in compiled AAR."
-              echo "This confirms @Retention(SOURCE) stripping."
+              echo "[FILE NOT FOUND] $1"
             fi
-          else
-            echo "FATAL: Could not locate Material AAR"
-          fi
+          }
 
-      - name: Get current source code
-        run: |
-          echo ""
-          echo "══════════════════════════════════════════════"
-          echo " CURRENT SliderPreference.kt (with line numbers)"
-          echo "══════════════════════════════════════════════"
-          cat -n app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "File not found"
-
-          echo ""
-          echo "══════════════════════════════════════════════"
-          echo " libs.versions.toml"
-          echo "══════════════════════════════════════════════"
-          cat gradle/libs.versions.toml || echo "File not found"
-
-          echo ""
-          echo "══════════════════════════════════════════════"
-          echo " app/build.gradle.kts (dependencies block)"
-          echo "══════════════════════════════════════════════"
-          sed -n '/^dependencies/,/^}/p' app/build.gradle.kts || echo "File or block not found"
-
-      - name: Save report
-        run: |
-          # 重新收集所有信息并保存为文件，安全处理缺失文件
           {
-            echo "# LabelBehavior Diagnosis Report"
+            echo "# Layout & SeekBar Fix Verification"
             echo "# Commit: $(git rev-parse HEAD)"
             echo "# Date: $(date -u)"
             echo ""
 
-            AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1)
-            if [ -n "$AAR" ]; then
-              # 确保临时目录存在并解压
-              mkdir -p /tmp/mat && cd /tmp/mat
-              cp "$AAR" material.aar 2>/dev/null || echo "Copy AAR failed" >&2
-              unzip -o material.aar classes.jar -d . 2>/dev/null || echo "Unzip failed" >&2
+            echo "## [CHECK-1] values/themes.xml"
+            echo '```xml'
+            safe_cat app/src/main/res/values/themes.xml
+            echo '```'
+            echo ""
 
-              if [ -f classes.jar ]; then
-                echo "## slider package classes"
-                echo '```'
-                jar tf classes.jar | grep "^com/google/android/material/slider/" | sort || echo "(none)"
-                echo '```'
+            echo "## [CHECK-2] values-night/themes.xml"
+            echo '```xml'
+            safe_cat app/src/main/res/values-night/themes.xml
+            echo '```'
+            echo ""
 
-                echo ""
-                echo "## LabelBehavior search"
-                echo '```'
-                jar tf classes.jar | grep -i "label" | sort || echo "(none)"
-                echo '```'
+            echo "## [CHECK-3] preference_widget_slider.xml"
+            echo '```xml'
+            safe_cat app/src/main/res/layout/preference_widget_slider.xml
+            echo '```'
+            echo ""
 
-                echo ""
-                echo "## Slider public API"
-                echo '```'
-                javap -cp classes.jar -public com.google.android.material.slider.Slider 2>&1 || echo "javap failed"
-                echo '```'
-
-                echo ""
-                echo "## BaseSlider public API"
-                echo '```'
-                javap -cp classes.jar -public com.google.android.material.slider.BaseSlider 2>&1 || echo "javap failed"
-                echo '```'
-
-                echo ""
-                echo "## LabelFormatter API"
-                echo '```'
-                javap -cp classes.jar -public com.google.android.material.slider.LabelFormatter 2>&1 || echo "LabelFormatter not found"
-                echo '```'
-              else
-                echo "classes.jar not extracted, skipping AAR analysis"
-              fi
+            echo "## [CHECK-4] options.xml (SeekBarPreference entries)"
+            echo '```xml'
+            if [ -f app/src/main/res/xml/options.xml ]; then
+              grep -A 8 "SeekBarPreference" app/src/main/res/xml/options.xml || echo "(No SeekBarPreference found)"
             else
-              echo "Material AAR not found, skipping AAR analysis"
+              echo "[FILE NOT FOUND] app/src/main/res/xml/options.xml"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [CHECK-5] SliderPreference.kt"
+            echo '```kotlin'
+            safe_cat app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+            echo '```'
+            echo ""
+
+            echo "## [CHECK-6] Automated checks"
+            echo '```'
+            # 每个检查使用 if 判断，避免 grep 失败导致脚本退出
+            # Check 1
+            if grep -q "android:seekBarStyle" app/src/main/res/values/themes.xml 2>/dev/null; then
+              echo "PASS: android:seekBarStyle found in values/themes.xml"
+            else
+              echo "FAIL: android:seekBarStyle NOT found in values/themes.xml"
             fi
 
-            echo ""
-            echo "## SliderPreference.kt"
-            echo '```kotlin'
-            cat app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null || echo "File not found"
-            echo '```'
+            # Check 2
+            if grep -q "Widget.App.SeekBar.MD3Tint" app/src/main/res/values/themes.xml 2>/dev/null; then
+              echo "PASS: Widget.App.SeekBar.MD3Tint style defined"
+            else
+              echo "FAIL: Widget.App.SeekBar.MD3Tint style NOT defined"
+            fi
 
-            echo ""
-            echo "## libs.versions.toml"
-            echo '```'
-            cat gradle/libs.versions.toml 2>/dev/null || echo "File not found"
-            echo '```'
+            # Check 3
+            if grep -A 3 "Widget.App.SeekBar.MD3Tint" app/src/main/res/values/themes.xml 2>/dev/null | grep -q "colorPrimary"; then
+              echo "PASS: colorPrimary referenced in SeekBar style"
+            else
+              echo "FAIL: colorPrimary NOT referenced in SeekBar style"
+            fi
 
-            echo ""
-            echo "## dependencies block (build.gradle.kts)"
+            # Check 4
+            if grep -q "icon_frame" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
+              echo "PASS: icon_frame found in preference_widget_slider.xml"
+            else
+              echo "FAIL: icon_frame NOT found in preference_widget_slider.xml"
+            fi
+
+            # Check 5
+            if grep -q "@android:id/icon" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
+              echo "PASS: @android:id/icon found in preference_widget_slider.xml"
+            else
+              echo "FAIL: @android:id/icon NOT found in preference_widget_slider.xml"
+            fi
+
+            # Check 6
+            if grep -q "@android:id/title" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
+              echo "PASS: @android:id/title found"
+            else
+              echo "FAIL: @android:id/title NOT found"
+            fi
+
+            # Check 7
+            if grep -q "@android:id/summary" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
+              echo "PASS: @android:id/summary found"
+            else
+              echo "FAIL: @android:id/summary NOT found"
+            fi
+
+            # Check 8
+            if grep -q "slider_value" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null; then
+              echo "PASS: slider_value found"
+            else
+              echo "FAIL: slider_value NOT found"
+            fi
+
+            # Check 9
+            if grep -q "import.*LabelBehavior" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null; then
+              echo "FAIL: LabelBehavior import still present (will not compile)"
+            else
+              echo "PASS: No LabelBehavior import"
+            fi
+
+            # Check 10
+            if grep -q "LABEL_FLOATING" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null; then
+              echo "PASS: LABEL_FLOATING constant defined"
+            else
+              echo "FAIL: LABEL_FLOATING constant NOT found"
+            fi
+
+            # Check 11
+            if grep -q "android:seekBarStyle" app/src/main/res/values-night/themes.xml 2>/dev/null; then
+              echo "PASS: android:seekBarStyle found in values-night/themes.xml"
+            else
+              echo "FAIL: android:seekBarStyle NOT found in values-night/themes.xml"
+            fi
             echo '```'
-            sed -n '/^dependencies/,/^}/p' app/build.gradle.kts 2>/dev/null || echo "Block not found"
-            echo '```'
-          } > labelbehavior_diagnosis.txt
+          } > "$REPORT"
+
+          cat "$REPORT"
 
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
-          name: labelbehavior-diagnosis
-          path: labelbehavior_diagnosis.txt
+          name: layout-fix-verify
+          path: layout_fix_verify.txt
           retention-days: 14
