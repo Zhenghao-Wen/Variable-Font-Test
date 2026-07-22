@@ -1,4 +1,4 @@
-name: Verify SeekBar Tint & Slider Indent Fix
+name: Verify Layout Structure Fix
 
 on:
   workflow_dispatch:
@@ -22,9 +22,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          REPORT="tint_indent_verify.txt"
+          REPORT="layout_structure_verify.txt"
 
-          # 安全读取文件内容（若不存在则输出提示）
+          # 安全读取文件内容
           safe_cat() {
             if [ -f "$1" ]; then
               cat "$1"
@@ -33,112 +33,131 @@ jobs:
             fi
           }
 
-          # 安全执行 sed（若文件不存在则输出提示）
-          safe_sed() {
-            if [ -f "$1" ]; then
-              sed -n "$2" "$1"
-            else
-              echo "[FILE NOT FOUND] $1"
-            fi
+          # 安全获取行号（若 grep 无匹配则返回空）
+          get_line() {
+            grep -n "$2" "$1" 2>/dev/null | head -1 | cut -d: -f1 || true
           }
 
           {
-            echo "# SeekBar Tint & Slider Indent Fix Verification"
+            echo "# Layout Structure Fix Verification"
             echo "# Commit: $(git rev-parse HEAD)"
             echo "# Date: $(date -u)"
             echo ""
 
-            echo "## [CHECK-1] preference_widget_seekbar_md3.xml exists and has colorPrimary tint"
-            echo '```'
-            if [ -f "app/src/main/res/layout/preference_widget_seekbar_md3.xml" ]; then
-              echo "FILE EXISTS: YES"
-              grep -n "progressTint\|thumbTint\|colorPrimary" app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null || echo "TINT ATTRIBUTES: NOT FOUND"
-            else
-              echo "FILE EXISTS: NO ← CRITICAL FAILURE"
-            fi
+            echo "## [CHECK-1] preference_widget_slider.xml"
+            echo '```xml'
+            safe_cat app/src/main/res/layout/preference_widget_slider.xml
             echo '```'
             echo ""
 
-            echo "## [CHECK-2] OptionsFragment.kt sets layoutResource"
-            echo '```'
-            grep -n "layoutResource.*preference_widget_seekbar_md3\|preference_widget_seekbar_md3" \
-              app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null \
-              || echo "layoutResource assignment: NOT FOUND ← CRITICAL FAILURE"
-            echo '```'
-            echo ""
-
-            echo "## [CHECK-3] SliderPreference.kt sets isIconSpaceReserved"
-            echo '```'
-            grep -n "isIconSpaceReserved" \
-              app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null \
-              || echo "isIconSpaceReserved: NOT FOUND ← CRITICAL FAILURE"
-            echo '```'
-            echo ""
-
-            echo "## [CHECK-4] Full preference_widget_seekbar_md3.xml"
+            echo "## [CHECK-2] preference_widget_seekbar_md3.xml"
             echo '```xml'
             safe_cat app/src/main/res/layout/preference_widget_seekbar_md3.xml
             echo '```'
             echo ""
 
-            echo "## [CHECK-5] SliderPreference.kt init block"
-            echo '```kotlin'
-            safe_sed app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt '/init {/,/}/p'
-            echo '```'
-            echo ""
-
-            echo "## [CHECK-6] OptionsFragment.kt – context around layoutResource"
-            echo '```kotlin'
-            grep -n -B 2 -A 2 "preference_widget_seekbar_md3" \
-              app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null \
-              || echo "NOT FOUND"
-            echo '```'
-            echo ""
-
-            echo "## [CHECK-7] Automated pass/fail"
+            echo "## [CHECK-3] Automated checks"
             echo '```'
             PASS=0; FAIL=0
 
-            if [ -f "app/src/main/res/layout/preference_widget_seekbar_md3.xml" ]; then
-              echo "PASS: preference_widget_seekbar_md3.xml exists"; PASS=$((PASS+1))
+            # ── Slider layout checks ──
+            SLIDER="app/src/main/res/layout/preference_widget_slider.xml"
+
+            # 检查文件是否存在
+            if [ ! -f "$SLIDER" ]; then
+              echo "FAIL: Slider layout file missing"; FAIL=$((FAIL+1))
             else
-              echo "FAIL: preference_widget_seekbar_md3.xml missing"; FAIL=$((FAIL+1))
+              # Root must be horizontal
+              if head -20 "$SLIDER" 2>/dev/null | grep -q 'orientation="horizontal"'; then
+                echo "PASS: Slider layout root is horizontal"; PASS=$((PASS+1))
+              else
+                echo "FAIL: Slider layout root is NOT horizontal"; FAIL=$((FAIL+1))
+              fi
+
+              # icon_frame must be direct child of root (before content LinearLayout)
+              ICON_LINE=$(get_line "$SLIDER" "icon_frame")
+              CONTENT_LINE=$(get_line "$SLIDER" 'orientation="vertical"')
+              if [ -n "$ICON_LINE" ] && [ -n "$CONTENT_LINE" ] && [ "$ICON_LINE" -lt "$CONTENT_LINE" ]; then
+                echo "PASS: icon_frame appears before content (root-level sibling)"; PASS=$((PASS+1))
+              else
+                echo "FAIL: icon_frame is NOT at root level"; FAIL=$((FAIL+1))
+              fi
+
+              # Slider must exist
+              if grep -q "preference_slider" "$SLIDER" 2>/dev/null; then
+                echo "PASS: Slider widget found"; PASS=$((PASS+1))
+              else
+                echo "FAIL: Slider widget NOT found"; FAIL=$((FAIL+1))
+              fi
+
+              # slider_value must exist
+              if grep -q "slider_value" "$SLIDER" 2>/dev/null; then
+                echo "PASS: slider_value found"; PASS=$((PASS+1))
+              else
+                echo "FAIL: slider_value NOT found"; FAIL=$((FAIL+1))
+              fi
             fi
 
-            if grep -q 'android:progressTint="?attr/colorPrimary"' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
-              echo "PASS: progressTint=colorPrimary in layout"; PASS=$((PASS+1))
-            else
-              echo "FAIL: progressTint=colorPrimary NOT in layout"; FAIL=$((FAIL+1))
-            fi
+            # ── SeekBar layout checks ──
+            SEEKBAR="app/src/main/res/layout/preference_widget_seekbar_md3.xml"
 
-            if grep -q 'android:thumbTint="?attr/colorPrimary"' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
-              echo "PASS: thumbTint=colorPrimary in layout"; PASS=$((PASS+1))
+            if [ ! -f "$SEEKBAR" ]; then
+              echo "FAIL: SeekBar layout file missing"; FAIL=$((FAIL+1))
             else
-              echo "FAIL: thumbTint=colorPrimary NOT in layout"; FAIL=$((FAIL+1))
-            fi
+              # Root must be horizontal
+              if head -20 "$SEEKBAR" 2>/dev/null | grep -q 'orientation="horizontal"'; then
+                echo "PASS: SeekBar layout root is horizontal"; PASS=$((PASS+1))
+              else
+                echo "FAIL: SeekBar layout root is NOT horizontal"; FAIL=$((FAIL+1))
+              fi
 
-            if grep -q 'seekbar' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
-              echo "PASS: SeekBar id=seekbar in layout"; PASS=$((PASS+1))
-            else
-              echo "FAIL: SeekBar id=seekbar NOT in layout"; FAIL=$((FAIL+1))
-            fi
+              # Must NOT have RelativeLayout with layout_height="0dp"
+              if grep -q 'layout_height="0dp"' "$SEEKBAR" 2>/dev/null; then
+                echo "FAIL: SeekBar layout still has 0dp height (compact bug)"; FAIL=$((FAIL+1))
+              else
+                echo "PASS: No 0dp height in SeekBar layout"; PASS=$((PASS+1))
+              fi
 
-            if grep -q 'seekbar_value' app/src/main/res/layout/preference_widget_seekbar_md3.xml 2>/dev/null; then
-              echo "PASS: seekbar_value TextView in layout"; PASS=$((PASS+1))
-            else
-              echo "FAIL: seekbar_value TextView NOT in layout"; FAIL=$((FAIL+1))
-            fi
+              # Must NOT have layout_weight on title/summary container
+              if grep -B2 "layout_weight" "$SEEKBAR" 2>/dev/null | grep -q "title\|summary\|RelativeLayout"; then
+                echo "FAIL: layout_weight still on title/summary area"; FAIL=$((FAIL+1))
+              else
+                echo "PASS: No layout_weight on title/summary area"; PASS=$((PASS+1))
+              fi
 
-            if grep -q 'preference_widget_seekbar_md3' app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null; then
-              echo "PASS: OptionsFragment references custom layout"; PASS=$((PASS+1))
-            else
-              echo "FAIL: OptionsFragment does NOT reference custom layout"; FAIL=$((FAIL+1))
-            fi
+              # Must have colorPrimary tint
+              if grep -q 'progressTint="?attr/colorPrimary"' "$SEEKBAR" 2>/dev/null; then
+                echo "PASS: progressTint=colorPrimary"; PASS=$((PASS+1))
+              else
+                echo "FAIL: progressTint=colorPrimary NOT found"; FAIL=$((FAIL+1))
+              fi
 
-            if grep -q 'isIconSpaceReserved' app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null; then
-              echo "PASS: SliderPreference sets isIconSpaceReserved"; PASS=$((PASS+1))
-            else
-              echo "FAIL: SliderPreference does NOT set isIconSpaceReserved"; FAIL=$((FAIL+1))
+              if grep -q 'thumbTint="?attr/colorPrimary"' "$SEEKBAR" 2>/dev/null; then
+                echo "PASS: thumbTint=colorPrimary"; PASS=$((PASS+1))
+              else
+                echo "FAIL: thumbTint=colorPrimary NOT found"; FAIL=$((FAIL+1))
+              fi
+
+              # Must have seekbar id
+              if grep -q '@+id/seekbar' "$SEEKBAR" 2>/dev/null; then
+                echo "PASS: SeekBar id=seekbar"; PASS=$((PASS+1))
+              else
+                echo "FAIL: SeekBar id=seekbar NOT found"; FAIL=$((FAIL+1))
+              fi
+
+              # Must have seekbar_value id
+              if grep -q '@+id/seekbar_value' "$SEEKBAR" 2>/dev/null; then
+                echo "PASS: seekbar_value found"; PASS=$((PASS+1))
+              else
+                echo "FAIL: seekbar_value NOT found"; FAIL=$((FAIL+1))
+              fi
+
+              # Must have icon_frame
+              if grep -q "icon_frame" "$SEEKBAR" 2>/dev/null; then
+                echo "PASS: icon_frame in SeekBar layout"; PASS=$((PASS+1))
+              else
+                echo "FAIL: icon_frame NOT in SeekBar layout"; FAIL=$((FAIL+1))
+              fi
             fi
 
             echo ""
@@ -151,6 +170,6 @@ jobs:
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
-          name: tint-indent-verify
-          path: tint_indent_verify.txt
+          name: layout-structure-verify
+          path: layout_structure_verify.txt
           retention-days: 14
