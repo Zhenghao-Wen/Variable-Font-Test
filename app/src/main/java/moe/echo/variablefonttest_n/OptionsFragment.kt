@@ -468,6 +468,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
             } else false
         }
 
+        // ── 修复旧版 SeekBar 饱和度：强制使用 colorPrimary 而非 colorSecondary ──
+        // PreferenceThemeOverlay 将 colorControlActivated 重定向到 colorSecondary，
+        // android:seekBarStyle 无法覆盖。唯一有效方案：通过自定义布局在 XML 属性层直接写死 tint。
+        listOf(ital, opsz, slnt, wdth, wght).forEach { pref ->
+            pref?.layoutResource = R.layout.preference_widget_seekbar_md3
+        }
+
         // ── Check MD3 Slider toggle ──
         val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(requireContext())
             .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
