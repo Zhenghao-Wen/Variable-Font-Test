@@ -1,4 +1,4 @@
-name: Extract Full Context for Divider + Custom SeekBar Diagnosis
+name: Extract Source for Divider + State Fix
 
 on:
   workflow_dispatch:
@@ -22,131 +22,136 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          R="full_context_diagnosis.txt"
-          LIMIT=51200
-          CUR=0
+          R="divider_state_fix.txt"
 
-          emit() {
-            local f="$1" label="$2"
-            [ -f "$f" ] || { echo "[MISSING] $f" >&2; return 0; }
-            local body
-            body=$(cat "$f")
-            local sz=$(( ${#label} + ${#body} + ${#f} + 30 ))
-            if (( CUR + sz > LIMIT )); then
-              echo "[SKIP] $f" >&2; return 0
+          # 安全读取文件
+          safe_cat() {
+            if [ -f "$1" ]; then
+              cat "$1"
+            else
+              echo "[FILE NOT FOUND] $1"
             fi
-            { echo ""; echo "## [$label] $f"; echo '```'; echo "$body"; echo '```'; } >> "$R"
-            CUR=$(( CUR + sz ))
-            echo "[OK $(printf '%5d' "$sz")B] $f" >&2
+          }
+
+          # 安全执行 sed（模式匹配失败或文件不存在都返回空）
+          safe_sed() {
+            if [ -f "$1" ]; then
+              sed -n "$2" "$1" 2>/dev/null || echo "(pattern not found)"
+            else
+              echo "[FILE NOT FOUND] $1"
+            fi
           }
 
           {
-            echo "# Full Context Diagnosis"
+            echo "# Divider + State Fix Diagnosis"
             echo "# Commit: $(git rev-parse HEAD)"
             echo "# Date: $(date -u)"
-          } > "$R"
-          CUR=$(wc -c < "$R")
-
-          # ── 核心逻辑文件（必须完整）──
-          emit "app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt" "CORE"
-          emit "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt" "CORE"
-          emit "app/src/main/java/moe/echo/variablefonttest_n/MD3SeekBarPreference.kt" "CORE"
-          emit "app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt" "CORE"
-          emit "app/src/main/java/moe/echo/variablefonttest_n/Constants.kt" "CORE"
-
-          # ── 布局文件 ──
-          emit "app/src/main/res/layout/preference_widget_slider.xml" "LAYOUT"
-          emit "app/src/main/res/layout/activity_main.xml" "LAYOUT"
-          emit "app/src/main/res/layout/main_fragment_content.xml" "LAYOUT"
-          emit "app/src/main/res/layout/add_preference_dialog.xml" "LAYOUT"
-          emit "app/src/main/res/layout/dialog_edit_text_md3.xml" "LAYOUT"
-
-          # ── 检查已删除文件 ──
-          {
             echo ""
-            echo "## [CHECK] preference_widget_seekbar_md3.xml existence"
+
+            echo "## [1] preference_widget_slider.xml (FULL)"
+            echo '```xml'
+            safe_cat app/src/main/res/layout/preference_widget_slider.xml
             echo '```'
-            if [ -f "app/src/main/res/layout/preference_widget_seekbar_md3.xml" ]; then
-              echo "EXISTS (should have been deleted)"
-              cat app/src/main/res/layout/preference_widget_seekbar_md3.xml
+            echo ""
+
+            echo "## [2] SliderPreference.kt (FULL)"
+            echo '```kotlin'
+            safe_cat app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+            echo '```'
+            echo ""
+
+            echo "## [3] OptionsFragment.kt – onViewCreated (FULL method)"
+            echo '```kotlin'
+            safe_sed app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt '/override fun onViewCreated/,/^ private fun MutableMap/p'
+            echo '```'
+            echo ""
+
+            echo "## [4] OptionsFragment.kt – class-level fields + onSaveInstanceState check"
+            echo '```kotlin'
+            safe_sed app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt '1,60p'
+            echo '```'
+            echo ""
+
+            echo "## [5] OptionsFragment.kt – onSaveInstanceState exists?"
+            echo '```'
+            grep -n "onSaveInstanceState\|savedInstanceState\|fontVariationSettings\|fontFeatureSettings" \
+              app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null || echo "(no matching lines)"
+            echo '```'
+            echo ""
+
+            echo "## [6] MainActivity.kt – recreate() context"
+            echo '```kotlin'
+            grep -n -B 3 -A 3 "recreate" app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt 2>/dev/null || echo "(recreate not found)"
+            echo '```'
+            echo ""
+
+            echo "## [7] options.xml – SeekBarPreference defaultValue check"
+            echo '```'
+            grep -A 2 "defaultValue" app/src/main/res/xml/options.xml 2>/dev/null || echo "(defaultValue not found)"
+            echo '```'
+            echo ""
+
+            echo "## [8] Standard SeekBar layout from preference library (if accessible)"
+            echo '```'
+            # Try to find the standard layout in the Gradle cache
+            PREF_AAR=$(find ~/.gradle/caches -name "preference-1.2.1.aar" 2>/dev/null | head -1)
+            if [ -n "$PREF_AAR" ]; then
+              mkdir -p /tmp/pref_inspect && cd /tmp/pref_inspect
+              cp "$PREF_AAR" pref.aar 2>/dev/null || echo "Copy failed"
+              unzip -o pref.aar res/layout/preference_widget_seekbar_material.xml -d . 2>/dev/null || true
+              if [ -f "res/layout/preference_widget_seekbar_material.xml" ]; then
+                cat res/layout/preference_widget_seekbar_material.xml
+              else
+                echo "Layout not found in AAR (may be in res/ directory)"
+                unzip -l pref.aar 2>/dev/null | grep "seekbar" || echo "No seekbar layouts found"
+              fi
             else
-              echo "DELETED (correct)"
+              echo "Preference AAR not found in Gradle cache"
             fi
             echo '```'
-          } >> "$R"
-
-          # ── Preference XML ──
-          emit "app/src/main/res/xml/options.xml" "PREF-XML"
-
-          # ── 主题 ──
-          emit "app/src/main/res/values/themes.xml" "THEME"
-
-          # ── 字符串（确认 i18n）──
-          emit "app/src/main/res/values/strings.xml" "STRINGS"
-          emit "app/src/main/res/values-zh-rCN/strings.xml" "STRINGS"
-
-          # ── 菜单 ──
-          emit "app/src/main/res/menu/main_menu.xml" "MENU"
-
-          # ── 目录树 ──
-          {
             echo ""
-            echo "## [TREE] Full resource + source tree"
+
+            echo "## [9] themes.xml – surface colors"
+            echo '```xml'
+            safe_cat app/src/main/res/values/themes.xml
             echo '```'
-            find app/src/main/res app/src/main/java -type f | sort
+            echo ""
+
+            echo "## [10] main_fragment_content.xml – RecyclerView/ListView background"
+            echo '```xml'
+            safe_cat app/src/main/res/layout/main_fragment_content.xml
             echo '```'
-          } >> "$R"
-
-          # ── 自动化检查 ──
-          {
             echo ""
-            echo "## [AUTO-CHECK]"
+
+            echo "## [11] Automated checks"
             echo '```'
-            OF="app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
-
-            echo "--- createAddPreferenceDialog: SeekBar type used ---"
-            grep -n "SeekBarPreference\|MD3SeekBarPreference\|SliderPreference" "$OF" 2>/dev/null | head -30 || true
-
-            echo ""
-            echo "--- removePreference / addPreference / removeAll calls ---"
-            grep -n "removePreference\|addPreference\|removeAll" "$OF" 2>/dev/null || true
-
-            echo ""
-            echo "--- onCreateRecyclerView / ItemDecoration / Divider ---"
-            grep -n "onCreateRecyclerView\|ItemDecoration\|Divider\|divider" "$OF" 2>/dev/null || echo "(none found)"
-
-            echo ""
-            echo "--- layoutResource assignments ---"
-            grep -n "layoutResource" "$OF" 2>/dev/null || echo "(none found)"
-
-            echo ""
-            echo "--- SliderPreference.kt: layoutResource ---"
-            grep -n "layoutResource\|isIconSpaceReserved" \
-              app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt 2>/dev/null || true
-
-            echo ""
-            echo "--- preference_widget_slider.xml: root orientation ---"
-            head -15 app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null | grep "orientation" || echo "(orientation not found)"
-
-            echo ""
-            echo "--- preference_widget_slider.xml: RelativeLayout count ---"
-            grep -c "RelativeLayout" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null || echo "0"
-
-            echo ""
-            echo "--- preference_widget_slider.xml: image_frame/icon_frame ---"
-            grep "image_frame\|icon_frame" app/src/main/res/layout/preference_widget_slider.xml 2>/dev/null || echo "(none found)"
-
-            echo ""
-            echo "--- All layout files ---"
-            ls -la app/src/main/res/layout/ 2>/dev/null || echo "(layout directory not found)"
+            SL="app/src/main/res/layout/preference_widget_slider.xml"
+            if [ -f "$SL" ]; then
+              echo "--- marginTop/marginBottom in slider layout ---"
+              grep -n "margin" "$SL" 2>/dev/null || echo "(none)"
+              echo ""
+              echo "--- paddingTop/paddingBottom in slider layout ---"
+              grep -n "padding" "$SL" 2>/dev/null || echo "(none)"
+              echo ""
+              echo "--- RelativeLayout in slider layout ---"
+              grep -c "RelativeLayout" "$SL" 2>/dev/null || echo "0"
+              echo ""
+              echo "--- background attributes in slider layout ---"
+              grep -n "background" "$SL" 2>/dev/null || echo "(none)"
+              echo ""
+              echo "--- clipChildren/clipToPadding in slider layout ---"
+              grep -n "clip" "$SL" 2>/dev/null || echo "(none)"
+            else
+              echo "Slider layout file not found"
+            fi
             echo '```'
-          } >> "$R"
+          } > "$R"
 
-          echo "Final size: $(wc -c < "$R") bytes"
+          cat "$R"
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: full-context-diagnosis
-          path: full_context_diagnosis.txt
+          name: divider-state-fix
+          path: divider_state_fix.txt
           retention-days: 14
