@@ -26,7 +26,6 @@ jobs:
 
           R="divider_state_fix.txt"
 
-          # 安全读取文件（加容错）
           safe_cat() {
             if [ -f "$1" ]; then
               cat "$1" 2>/dev/null || echo "[ERROR reading $1]"
@@ -35,7 +34,6 @@ jobs:
             fi
           }
 
-          # 安全执行 sed（模式匹配失败不报错）
           safe_sed() {
             if [ -f "$1" ]; then
               sed -n "$2" "$1" 2>/dev/null || echo "(pattern not found or sed error)"
@@ -95,7 +93,8 @@ jobs:
 
             echo "## [8] Standard SeekBar layout from preference library (if accessible)"
             echo '```'
-            PREF_AAR=$(find ~/.gradle/caches -name "preference-1.2.1.aar" 2>/dev/null | head -1)
+            # 修复：添加 || true 防止 find + head 管道因 SIGPIPE 失败
+            PREF_AAR=$(find ~/.gradle/caches -name "preference-1.2.1.aar" 2>/dev/null | head -1 || true)
             if [ -n "$PREF_AAR" ]; then
               mkdir -p /tmp/pref_inspect || true
               cd /tmp/pref_inspect || true
