@@ -142,7 +142,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         }
                     }
                 Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
-                    SeekBarPreference(preferenceScreen.context).apply {
+                    MD3SeekBarPreference(preferenceScreen.context).apply {
                         val rawMin = seekBarMin.text.toString()
                         val rawMax = seekBarMax.text.toString()
                         val rawStep = seekBarStep.text.toString()
@@ -239,7 +239,35 @@ class OptionsFragment : PreferenceFragmentCompat() {
             if (duplicateKeyPreference != null) {
                 preferences.removePreference(duplicateKeyPreference)
             }
-            preferences.addPreference(preference)
+            // ── 如果 MD3 Slider 已开启且当前添加的是拖动条，替换为 SliderPreference ──
+            val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+            val finalPreference: Preference = if (
+                useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR
+            ) {
+                SliderPreference(context).apply {
+                    key = tagName
+                    title = tagName
+                    summary = tagName
+                    valueFrom = (preference as SeekBarPreference).min.toFloat()
+                    valueTo = preference.max.toFloat()
+                    stepSize = preference.seekBarIncrement.toFloat().coerceAtLeast(1f)
+                    sliderValue = preference.value.toFloat()
+                    showLabel = false
+                    isPersistent = false
+                    setOnPreferenceChangeListener { _, newValue ->
+                        val value = newValue.toString().toFloatOrNull()
+                        if (value != null) {
+                            setSetting(tagName, value.toString())
+                            true
+                        } else false
+                    }
+                }
+            } else {
+                preference
+            }
+            preferences.addPreference(finalPreference)
 
             // Reorganize preferences to make add & edit preference always at bottom
             preferences.forEach {
@@ -533,39 +561,34 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     )
                 )
 
-                for (r in replacements) {
-                    val oldPref = findPreference<SeekBarPreference>(r.seekBarKey) ?: continue
-                    val order = oldPref.order
-                    val sliderPref = SliderPreference(requireContext()).apply {
-                        key = r.seekBarKey
-                        title = getString(r.titleRes)
-                        summary = r.summary
-                        valueFrom = r.valueFrom
-                        valueTo = r.valueTo
-                        stepSize = r.stepSize
-                        sliderValue = r.defaultValue
-                        showLabel = r.showLabel
-                        isPersistent = false
-                        setOnPreferenceChangeListener { _, newValue -> r.handler(newValue) }
-                    }
-                    category.removePreference(oldPref)
-                    sliderPref.order = order
-                    category.addPreference(sliderPref)
-                }
-                // ── 修复位置：为所有项分配显式 order ──
+                val replacementMap = replacements.associateBy { it.seekBarKey }
+                // ── 第一步：快照当前所有 Preference（保留原始顺序）──
+                val snapshot = mutableListOf<Preference>()
+                category.forEach { snapshot.add(it) }
+                // ── 第二步：一次性清空（仅 1 次 notifyChanged）──
+                category.removeAll()
+                // ── 第三步：按原始顺序重建，SeekBar 替换为 Slider，其余原样放回 ──
                 var orderIdx = 0
-                category.forEach { pref ->
-                    when (pref.key) {
-                        Constants.PREF_UNSUPPORTED_ANDROID -> pref.order = orderIdx++
-                        Constants.PREF_VARIATION_ITALIC -> pref.order = orderIdx++
-                        Constants.PREF_VARIATION_OPTICAL_SIZE -> pref.order = orderIdx++
-                        Constants.PREF_VARIATION_SLANT -> pref.order = orderIdx++
-                        Constants.PREF_VARIATION_WIDTH -> pref.order = orderIdx++
-                        Constants.PREF_VARIATION_WEIGHT -> pref.order = orderIdx++
-                        Constants.PREF_VARIATION_EDITOR -> pref.order = orderIdx++
-                        Constants.PREF_ADD_FONT_VARIATION -> pref.order = orderIdx++
-                        Constants.PREF_EDIT_VARIATION -> pref.order = orderIdx++
-                        else -> pref.order = orderIdx++
+                for (pref in snapshot) {
+                    val r = replacementMap[pref.key]
+                    if (r != null) {
+                        val sliderPref = SliderPreference(requireContext()).apply {
+                            key = r.seekBarKey
+                            title = getString(r.titleRes)
+                            summary = r.summary
+                            valueFrom = r.valueFrom
+                            valueTo = r.valueTo
+                            stepSize = r.stepSize
+                            sliderValue = r.defaultValue
+                            showLabel = r.showLabel
+                            isPersistent = false
+                            setOnPreferenceChangeListener { _, newValue -> r.handler(newValue) }
+                            order = orderIdx++
+                        }
+                        category.addPreference(sliderPref)
+                    } else {
+                        pref.order = orderIdx++
+                        category.addPreference(pref)
                     }
                 }
             }
