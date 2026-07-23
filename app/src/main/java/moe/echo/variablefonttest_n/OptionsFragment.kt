@@ -49,12 +49,13 @@ import kotlin.math.pow
 
 private const val TAG = "OptionsFragment"
 
-private companion object {
-    const val KEY_VARIATION_SETTINGS = "fontVariationSettings"
-    const val KEY_FEATURE_SETTINGS = "fontFeatureSettings"
-}
 
 class OptionsFragment : PreferenceFragmentCompat() {
+
+    companion object {
+        const val KEY_VARIATION_SETTINGS = "fontVariationSettings"
+        const val KEY_FEATURE_SETTINGS = "fontFeatureSettings"
+    }
 
     private val fontVariationSettings = mutableMapOf<String, String>()
     private val fontFeatureSettings = mutableMapOf<String, String>()
