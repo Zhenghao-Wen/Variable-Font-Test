@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 匹配标准 preference_widget_seekbar_material.xml 的根级水平结构。
-     icon_frame 与内容区为同级兄弟，确保 icon_frame 的 56dp 占位
-     缩进整个内容区（标题 + 摘要 + Slider），而非仅缩进标题行。 -->
+<!-- preference_widget_seekbar_material.xml 的精确结构副本。
+     唯一区别：SeekBar → Slider，seekbar_value → slider_value。
+     RelativeLayout(0dp+weight) 的溢出机制吸收 margin，消除顶部可见间隙。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
     android:minHeight="?android:attr/listPreferredItemHeightSmall"
     android:gravity="center_vertical"
     android:paddingStart="?android:attr/listPreferredItemPaddingStart"
@@ -15,7 +14,6 @@
     android:clipToPadding="false"
     android:baselineAligned="false">
 
-    <!-- icon_frame：根级兄弟，缩进整个内容区 -->
     <FrameLayout
         android:id="@android:id/icon_frame"
         android:layout_width="wrap_content"
@@ -31,7 +29,6 @@
             android:scaleType="fitCenter" />
     </FrameLayout>
 
-    <!-- 内容区：标题 + 摘要 + Slider -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -41,29 +38,35 @@
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <TextView
-            android:id="@android:id/title"
+        <!-- 与标准布局完全一致：RelativeLayout(0dp+weight) 溢出机制 -->
+        <RelativeLayout
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:singleLine="true"
-            android:textAppearance="?android:attr/textAppearanceListItem"
-            android:ellipsize="marquee" />
+            android:layout_height="0dp"
+            android:layout_weight="1">
 
-        <TextView
-            android:id="@android:id/summary"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceListItemSecondary"
-            android:textColor="?android:attr/textColorSecondary"
-            android:maxLines="4" />
+            <TextView
+                android:id="@android:id/title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:singleLine="true"
+                android:textAppearance="?android:attr/textAppearanceListItem"
+                android:ellipsize="marquee" />
 
-        <!-- Slider + 右侧数值 -->
+            <TextView
+                android:id="@android:id/summary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@android:id/title"
+                android:layout_alignStart="@android:id/title"
+                android:textAppearance="?android:attr/textAppearanceListItemSecondary"
+                android:textColor="?android:attr/textColorSecondary"
+                android:maxLines="4" />
+        </RelativeLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginTop="4dp"
             android:clipChildren="false"
             android:clipToPadding="false">
 
@@ -77,9 +80,9 @@
                 android:id="@+id/slider_value"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:minWidth="36dp"
                 android:gravity="end"
-                android:layout_marginStart="8dp"
+                android:minWidth="36dp"
+                android:paddingStart="8dp"
                 android:textAppearance="?android:attr/textAppearanceListItemSecondary"
                 android:textColor="?android:attr/textColorSecondary"
                 android:visibility="gone" />

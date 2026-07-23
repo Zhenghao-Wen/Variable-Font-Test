@@ -49,6 +49,11 @@ import kotlin.math.pow
 
 private const val TAG = "OptionsFragment"
 
+private companion object {
+    const val KEY_VARIATION_SETTINGS = "fontVariationSettings"
+    const val KEY_FEATURE_SETTINGS = "fontFeatureSettings"
+}
+
 class OptionsFragment : PreferenceFragmentCompat() {
 
     private val fontVariationSettings = mutableMapOf<String, String>()
@@ -340,8 +345,26 @@ class OptionsFragment : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.options, rootKey)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putSerializable(KEY_VARIATION_SETTINGS, HashMap(fontVariationSettings))
+        outState.putSerializable(KEY_FEATURE_SETTINGS, HashMap(fontFeatureSettings))
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // ── 恢复保存的参数状态（recreate / 配置变更后无缝衔接）──
+        savedInstanceState?.let { state ->
+            @Suppress("UNCHECKED_CAST")
+            (state.getSerializable(KEY_VARIATION_SETTINGS) as? HashMap<String, String>)?.let {
+                fontVariationSettings.putAll(it)
+            }
+            @Suppress("UNCHECKED_CAST")
+            (state.getSerializable(KEY_FEATURE_SETTINGS) as? HashMap<String, String>)?.let {
+                fontFeatureSettings.putAll(it)
+            }
+        }
 
         val fontFamilyOptions = resources.getStringArray(R.array.font_family_values)
         // Drop custom font option
@@ -572,6 +595,25 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 for (pref in snapshot) {
                     val r = replacementMap[pref.key]
                     if (r != null) {
+                        // 从已保存的状态中读取当前值，实现无缝切换
+                        val currentValue = when (r.seekBarKey) {
+                            Constants.PREF_VARIATION_ITALIC ->
+                                fontVariationSettings[Constants.VARIATION_AXIS_ITALIC]
+                                    ?.toFloatOrNull()?.let { it * 10 } ?: r.defaultValue
+                            Constants.PREF_VARIATION_OPTICAL_SIZE ->
+                                fontVariationSettings[Constants.VARIATION_AXIS_OPTICAL_SIZE]
+                                    ?.toFloatOrNull()?.let { it * 10 } ?: r.defaultValue
+                            Constants.PREF_VARIATION_SLANT ->
+                                fontVariationSettings[Constants.VARIATION_AXIS_SLANT]
+                                    ?.toFloatOrNull()?.let { it + 90 } ?: r.defaultValue
+                            Constants.PREF_VARIATION_WIDTH ->
+                                fontVariationSettings[Constants.VARIATION_AXIS_WIDTH]
+                                    ?.toFloatOrNull()?.let { it * 10 } ?: r.defaultValue
+                            Constants.PREF_VARIATION_WEIGHT ->
+                                fontVariationSettings[Constants.VARIATION_AXIS_WEIGHT]
+                                    ?.toFloatOrNull() ?: r.defaultValue
+                            else -> r.defaultValue
+                        }
                         val sliderPref = SliderPreference(requireContext()).apply {
                             key = r.seekBarKey
                             title = getString(r.titleRes)
@@ -579,7 +621,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             valueFrom = r.valueFrom
                             valueTo = r.valueTo
                             stepSize = r.stepSize
-                            sliderValue = r.defaultValue
+                            sliderValue = currentValue
                             showLabel = r.showLabel
                             isPersistent = false
                             setOnPreferenceChangeListener { _, newValue -> r.handler(newValue) }
@@ -759,6 +801,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
             }
 
             true
+        }
+
+        // ── 恢复预览文本的字体可变/特性设置 ──
+        if (fontVariationSettings.isNotEmpty()) {
+            setVariation(fontVariationSettings.toFeatures())
+        }
+        if (fontFeatureSettings.isNotEmpty()) {
+            previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
         }
     }
 
