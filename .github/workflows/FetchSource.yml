@@ -1,4 +1,4 @@
-name: Extract Source for Divider + State Fix
+name: Deep Diagnosis - Divider and State
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - QwenMirror
 
 jobs:
-  extract:
+  diagnose:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,8 +24,12 @@ jobs:
           set -euo pipefail
           trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
 
-          R="divider_state_fix.txt"
+          R="deep_diagnosis.txt"
+          OF="app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
+          SP="app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt"
+          SL="app/src/main/res/layout/preference_widget_slider.xml"
 
+          # 安全读取文件
           safe_cat() {
             if [ -f "$1" ]; then
               cat "$1" 2>/dev/null || echo "[ERROR reading $1]"
@@ -34,117 +38,187 @@ jobs:
             fi
           }
 
-          safe_sed() {
+          # 安全 cat -n
+          safe_cat_n() {
             if [ -f "$1" ]; then
-              sed -n "$2" "$1" 2>/dev/null || echo "(pattern not found or sed error)"
+              cat -n "$1" 2>/dev/null || echo "[ERROR reading $1]"
             else
               echo "[FILE NOT FOUND] $1"
             fi
           }
 
+          # 安全执行 grep（输出内容或默认信息）
+          safe_grep() {
+            local pattern="$1" file="$2"
+            if [ -f "$file" ]; then
+              grep -n "$pattern" "$file" 2>/dev/null || echo "(no matches)"
+            else
+              echo "[FILE NOT FOUND] $file"
+            fi
+          }
+
+          # 安全执行 grep -B -A
+          safe_grep_context() {
+            local pattern="$1" file="$2"
+            if [ -f "$file" ]; then
+              grep -n -B 2 -A 5 "$pattern" "$file" 2>/dev/null || echo "(no matches)"
+            else
+              echo "[FILE NOT FOUND] $file"
+            fi
+          }
+
           {
-            echo "# Divider + State Fix Diagnosis"
+            echo "# Deep Diagnosis"
             echo "# Commit: $(git rev-parse HEAD)"
             echo "# Date: $(date -u)"
             echo ""
 
-            echo "## [1] preference_widget_slider.xml (FULL)"
+            # ═══════════════════════════════════════════════════════
+            # A. 验证 CodingAgent 是否真正应用了修改
+            # ═══════════════════════════════════════════════════════
+            echo "## [A1] onSaveInstanceState 是否存在于 OptionsFragment 类内部"
+            echo '```'
+            safe_grep "onSaveInstanceState" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [A2] companion object 是否在 class 内部"
+            echo '```'
+            safe_grep_context "companion object" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [A3] KEY_VARIATION_SETTINGS / KEY_FEATURE_SETTINGS 引用"
+            echo '```'
+            safe_grep "KEY_VARIATION_SETTINGS\|KEY_FEATURE_SETTINGS" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [A4] savedInstanceState 恢复逻辑"
+            echo '```'
+            if [ -f "$OF" ]; then
+              grep -n -A 3 "savedInstanceState" "$OF" 2>/dev/null | head -30 || echo "(no matches)"
+            else
+              echo "[FILE NOT FOUND] $OF"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [A5] currentValue 替换逻辑（替换循环中）"
+            echo '```'
+            safe_grep "currentValue\|sliderValue" "$OF" | head -20
+            echo '```'
+            echo ""
+
+            echo "## [A6] 预览恢复逻辑"
+            echo '```'
+            safe_grep "fontVariationSettings.isNotEmpty\|fontFeatureSettings.isNotEmpty" "$OF"
+            echo '```'
+            echo ""
+
+            # ═══════════════════════════════════════════════════════
+            # B. Divider 诊断
+            # ═══════════════════════════════════════════════════════
+            echo "## [B1] preference_widget_slider.xml 完整内容"
             echo '```xml'
-            safe_cat app/src/main/res/layout/preference_widget_slider.xml
+            safe_cat "$SL"
             echo '```'
             echo ""
 
-            echo "## [2] SliderPreference.kt (FULL)"
+            echo "## [B2] SliderPreference.kt 完整内容"
             echo '```kotlin'
-            safe_cat app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+            safe_cat "$SP"
             echo '```'
             echo ""
 
-            echo "## [3] OptionsFragment.kt – onViewCreated (FULL method)"
+            echo "## [B3] OptionsFragment.kt 完整内容（带行号）"
             echo '```kotlin'
-            safe_sed app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt '/override fun onViewCreated/,/^ private fun MutableMap/p'
+            safe_cat_n "$OF"
             echo '```'
             echo ""
 
-            echo "## [4] OptionsFragment.kt – class-level fields + onSaveInstanceState check"
-            echo '```kotlin'
-            safe_sed app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt '1,60p'
+            echo "## [B4] 检查 OptionsFragment 是否有 onCreateRecyclerView 重写"
+            echo '```'
+            safe_grep "onCreateRecyclerView\|ItemDecoration\|addItemDecoration\|removeItemDecoration" "$OF"
             echo '```'
             echo ""
 
-            echo "## [5] OptionsFragment.kt – onSaveInstanceState exists?"
+            echo "## [B5] 检查 PreferenceFragmentCompat 是否添加 DividerItemDecoration"
             echo '```'
-            grep -n "onSaveInstanceState\|savedInstanceState\|fontVariationSettings\|fontFeatureSettings" \
-              app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt 2>/dev/null || echo "(no matching lines)"
-            echo '```'
-            echo ""
-
-            echo "## [6] MainActivity.kt – recreate() context"
-            echo '```kotlin'
-            grep -n -B 3 -A 3 "recreate" app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt 2>/dev/null || echo "(recreate not found)"
-            echo '```'
-            echo ""
-
-            echo "## [7] options.xml – SeekBarPreference defaultValue check"
-            echo '```'
-            grep -A 2 "defaultValue" app/src/main/res/xml/options.xml 2>/dev/null || echo "(defaultValue not found)"
-            echo '```'
-            echo ""
-
-            echo "## [8] Standard SeekBar layout from preference library (if accessible)"
-            echo '```'
-            # 修复：添加 || true 防止 find + head 管道因 SIGPIPE 失败
-            PREF_AAR=$(find ~/.gradle/caches -name "preference-1.2.1.aar" 2>/dev/null | head -1 || true)
+            # 在 Gradle 缓存中查找 preference 库
+            PREF_JAR=$(find ~/.gradle/caches -path "*/preference-1.2.1*" -name "*.jar" 2>/dev/null | head -1 || true)
+            PREF_AAR=$(find ~/.gradle/caches -path "*/preference-1.2.1*" -name "*.aar" 2>/dev/null | head -1 || true)
             if [ -n "$PREF_AAR" ]; then
-              mkdir -p /tmp/pref_inspect || true
-              cd /tmp/pref_inspect || true
+              mkdir -p /tmp/pref_src || true
+              cd /tmp/pref_src || true
               cp "$PREF_AAR" pref.aar 2>/dev/null || echo "Copy failed"
-              unzip -o pref.aar res/layout/preference_widget_seekbar_material.xml -d . 2>/dev/null || true
-              if [ -f "res/layout/preference_widget_seekbar_material.xml" ]; then
-                cat res/layout/preference_widget_seekbar_material.xml 2>/dev/null || echo "Error reading extracted file"
-              else
-                echo "Layout not found in AAR (may be in res/ directory)"
-                unzip -l pref.aar 2>/dev/null | grep "seekbar" || echo "No seekbar layouts found"
+              unzip -o pref.aar classes.jar -d . 2>/dev/null || true
+              if [ -f "classes.jar" ]; then
+                echo "=== PreferenceFragmentCompat methods ==="
+                javap -cp classes.jar -public androidx.preference.PreferenceFragmentCompat 2>/dev/null | grep -i "divider\|decoration\|recycler\|viewCreated" || echo "No divider-related methods found"
+                echo ""
+                echo "=== PreferenceGroupAdapter methods ==="
+                javap -cp classes.jar -public androidx.preference.PreferenceGroupAdapter 2>/dev/null | grep -i "divider\|decoration\|bind" || echo "No divider-related methods found"
+              fi
+            elif [ -n "$PREF_JAR" ]; then
+              echo "=== PreferenceFragmentCompat methods ==="
+              javap -cp "$PREF_JAR" -public androidx.preference.PreferenceFragmentCompat 2>/dev/null | grep -i "divider\|decoration\|recycler\|viewCreated" || echo "No divider-related methods found"
+            else
+              echo "Preference library not found in Gradle cache"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [B6] 检查 Material 主题中 PreferenceCategory 的布局"
+            echo '```'
+            MAT_AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1 || true)
+            if [ -n "$MAT_AAR" ]; then
+              mkdir -p /tmp/mat_src || true
+              cd /tmp/mat_src || true
+              cp "$MAT_AAR" mat.aar 2>/dev/null || echo "Copy failed"
+              unzip -o mat.aar classes.jar -d . 2>/dev/null || true
+              if [ -f "classes.jar" ]; then
+                echo "=== MaterialPreferenceCategory ==="
+                javap -cp classes.jar -public com.google.android.material.preference.MaterialPreferenceCategory 2>/dev/null || echo "MaterialPreferenceCategory not found"
               fi
             else
-              echo "Preference AAR not found in Gradle cache"
+              echo "Material library not found in Gradle cache"
             fi
             echo '```'
             echo ""
 
-            echo "## [9] themes.xml – surface colors"
-            echo '```xml'
-            safe_cat app/src/main/res/values/themes.xml
+            # ═══════════════════════════════════════════════════════
+            # C. 状态保存诊断
+            # ═══════════════════════════════════════════════════════
+            echo "## [C1] OptionsFragment 类结构概览（方法签名）"
+            echo '```'
+            safe_grep "override fun\|private fun\|fun \|companion object\|class " "$OF" | head -30
             echo '```'
             echo ""
 
-            echo "## [10] main_fragment_content.xml – RecyclerView/ListView background"
-            echo '```xml'
-            safe_cat app/src/main/res/layout/main_fragment_content.xml
+            echo "## [C2] recreate() 调用上下文"
             echo '```'
-            echo ""
-
-            echo "## [11] Automated checks"
-            echo '```'
-            SL="app/src/main/res/layout/preference_widget_slider.xml"
-            if [ -f "$SL" ]; then
-              echo "--- marginTop/marginBottom in slider layout ---"
-              grep -n "margin" "$SL" 2>/dev/null || echo "(none)"
-              echo ""
-              echo "--- paddingTop/paddingBottom in slider layout ---"
-              grep -n "padding" "$SL" 2>/dev/null || echo "(none)"
-              echo ""
-              echo "--- RelativeLayout in slider layout ---"
-              grep -c "RelativeLayout" "$SL" 2>/dev/null || echo "0"
-              echo ""
-              echo "--- background attributes in slider layout ---"
-              grep -n "background" "$SL" 2>/dev/null || echo "(none)"
-              echo ""
-              echo "--- clipChildren/clipToPadding in slider layout ---"
-              grep -n "clip" "$SL" 2>/dev/null || echo "(none)"
+            if [ -f "app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt" ]; then
+              grep -n -B 5 -A 5 "recreate" app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt 2>/dev/null || echo "(recreate not found)"
             else
-              echo "Slider layout file not found"
+              echo "[FILE NOT FOUND] MainActivity.kt"
             fi
+            echo '```'
+            echo ""
+
+            echo "## [C3] 检查 Preference 的 persistent 属性"
+            echo '```'
+            if [ -f "app/src/main/res/xml/options.xml" ]; then
+              grep -n "persistent" app/src/main/res/xml/options.xml 2>/dev/null || echo "(no persistent attribute found)"
+            else
+              echo "[FILE NOT FOUND] options.xml"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [C4] fontVariationSettings 所有引用"
+            echo '```'
+            safe_grep "fontVariationSettings" "$OF"
             echo '```'
           } > "$R"
 
@@ -153,6 +227,6 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: divider-state-fix
-          path: divider_state_fix.txt
+          name: deep-diagnosis
+          path: deep_diagnosis.txt
           retention-days: 14
