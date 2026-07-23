@@ -1,4 +1,4 @@
-name: Deep Diagnosis - Divider and State
+name: Runtime Divider Diagnosis
 
 on:
   workflow_dispatch:
@@ -18,215 +18,74 @@ jobs:
           ref: QwenCode
           fetch-depth: 1
 
-      - name: Build report
+      - name: Inject diagnostic code
         shell: bash
         run: |
           set -euo pipefail
-          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
+          FILE="app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
 
-          R="deep_diagnosis.txt"
-          OF="app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
-          SP="app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt"
-          SL="app/src/main/res/layout/preference_widget_slider.xml"
+          if [ ! -f "$FILE" ]; then
+            echo "❌ ERROR: $FILE not found"
+            exit 1
+          fi
 
-          # 安全读取文件
-          safe_cat() {
-            if [ -f "$1" ]; then
-              cat "$1" 2>/dev/null || echo "[ERROR reading $1]"
-            else
-              echo "[FILE NOT FOUND] $1"
-            fi
-          }
+          # 精确匹配标记行（含 / 转义）
+          MARKER='\/\/ ── 恢复预览文本的字体可变\/特性设置 ──'
+          if ! grep -q "$MARKER" "$FILE"; then
+            echo "❌ ERROR: Marker not found in $FILE"
+            exit 1
+          fi
 
-          # 安全 cat -n
-          safe_cat_n() {
-            if [ -f "$1" ]; then
-              cat -n "$1" 2>/dev/null || echo "[ERROR reading $1]"
-            else
-              echo "[FILE NOT FOUND] $1"
-            fi
-          }
+          sed -i "/$MARKER/ i\\
+          \        // ══ DIAGNOSTIC: Divider source detection ══\\
+          \        android.util.Log.d(\"DIVIDER_DIAG\", \"RecyclerView ItemDecoration count: \" + listView.itemDecorationCount)\\
+          \        for (i in 0 until listView.itemDecorationCount) {\\
+          \            android.util.Log.d(\"DIVIDER_DIAG\", \"ItemDecoration[\$i]: \" + listView.getItemDecorationAt(i).javaClass.name)\\
+          \        }\\
+          \        listView.post {\\
+          \            val childCount = listView.childCount\\
+          \            android.util.Log.d(\"DIVIDER_DIAG\", \"RecyclerView childCount: \$childCount\")\\
+          \            for (i in 0 until childCount) {\\
+          \                val child = listView.getChildAt(i)\\
+          \                val holder = listView.getChildViewHolder(child)\\
+          \                android.util.Log.d(\"DIVIDER_DIAG\", \"Child[\$i]: viewType=\${holder.itemViewType}, class=\${holder.javaClass.simpleName}, height=\${child.height}, top=\${child.top}\")\\
+          \                if (child is android.view.ViewGroup) {\\
+          \                    for (j in 0 until child.childCount) {\\
+          \                        val subChild = child.getChildAt(j)\\
+          \                        if (subChild.height <= 3 && subChild.width > 100) {\\
+          \                            android.util.Log.d(\"DIVIDER_DIAG\", \"  SUSPECT DIVIDER in Child[\$i].child[\$j]: \${subChild.javaClass.name}, h=\${subChild.height}, w=\${subChild.width}, bg=\${subChild.background}\")\\
+          \                        }\\
+          \                    }\\
+          \                }\\
+          \            }\\
+          \        }\\
+          \        // ══ END DIAGNOSTIC ══\\
+          " "$FILE"
 
-          # 安全执行 grep（输出内容或默认信息）
-          safe_grep() {
-            local pattern="$1" file="$2"
-            if [ -f "$file" ]; then
-              grep -n "$pattern" "$file" 2>/dev/null || echo "(no matches)"
-            else
-              echo "[FILE NOT FOUND] $file"
-            fi
-          }
+          echo "✅ Injection completed."
 
-          # 安全执行 grep -B -A
-          safe_grep_context() {
-            local pattern="$1" file="$2"
-            if [ -f "$file" ]; then
-              grep -n -B 2 -A 5 "$pattern" "$file" 2>/dev/null || echo "(no matches)"
-            else
-              echo "[FILE NOT FOUND] $file"
-            fi
-          }
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          echo "Building debug APK..."
+          if ! ./gradlew app:assembleDebug 2>&1; then
+            echo "❌ Build failed. Check logs above."
+            exit 1
+          fi
+          echo "✅ Build succeeded."
 
-          {
-            echo "# Deep Diagnosis"
-            echo "# Commit: $(git rev-parse HEAD)"
-            echo "# Date: $(date -u)"
-            echo ""
-
-            # ═══════════════════════════════════════════════════════
-            # A. 验证 CodingAgent 是否真正应用了修改
-            # ═══════════════════════════════════════════════════════
-            echo "## [A1] onSaveInstanceState 是否存在于 OptionsFragment 类内部"
-            echo '```'
-            safe_grep "onSaveInstanceState" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [A2] companion object 是否在 class 内部"
-            echo '```'
-            safe_grep_context "companion object" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [A3] KEY_VARIATION_SETTINGS / KEY_FEATURE_SETTINGS 引用"
-            echo '```'
-            safe_grep "KEY_VARIATION_SETTINGS\|KEY_FEATURE_SETTINGS" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [A4] savedInstanceState 恢复逻辑"
-            echo '```'
-            if [ -f "$OF" ]; then
-              grep -n -A 3 "savedInstanceState" "$OF" 2>/dev/null | head -30 || echo "(no matches)"
-            else
-              echo "[FILE NOT FOUND] $OF"
-            fi
-            echo '```'
-            echo ""
-
-            echo "## [A5] currentValue 替换逻辑（替换循环中）"
-            echo '```'
-            safe_grep "currentValue\|sliderValue" "$OF" | head -20
-            echo '```'
-            echo ""
-
-            echo "## [A6] 预览恢复逻辑"
-            echo '```'
-            safe_grep "fontVariationSettings.isNotEmpty\|fontFeatureSettings.isNotEmpty" "$OF"
-            echo '```'
-            echo ""
-
-            # ═══════════════════════════════════════════════════════
-            # B. Divider 诊断
-            # ═══════════════════════════════════════════════════════
-            echo "## [B1] preference_widget_slider.xml 完整内容"
-            echo '```xml'
-            safe_cat "$SL"
-            echo '```'
-            echo ""
-
-            echo "## [B2] SliderPreference.kt 完整内容"
-            echo '```kotlin'
-            safe_cat "$SP"
-            echo '```'
-            echo ""
-
-            echo "## [B3] OptionsFragment.kt 完整内容（带行号）"
-            echo '```kotlin'
-            safe_cat_n "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [B4] 检查 OptionsFragment 是否有 onCreateRecyclerView 重写"
-            echo '```'
-            safe_grep "onCreateRecyclerView\|ItemDecoration\|addItemDecoration\|removeItemDecoration" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [B5] 检查 PreferenceFragmentCompat 是否添加 DividerItemDecoration"
-            echo '```'
-            # 在 Gradle 缓存中查找 preference 库
-            PREF_JAR=$(find ~/.gradle/caches -path "*/preference-1.2.1*" -name "*.jar" 2>/dev/null | head -1 || true)
-            PREF_AAR=$(find ~/.gradle/caches -path "*/preference-1.2.1*" -name "*.aar" 2>/dev/null | head -1 || true)
-            if [ -n "$PREF_AAR" ]; then
-              mkdir -p /tmp/pref_src || true
-              cd /tmp/pref_src || true
-              cp "$PREF_AAR" pref.aar 2>/dev/null || echo "Copy failed"
-              unzip -o pref.aar classes.jar -d . 2>/dev/null || true
-              if [ -f "classes.jar" ]; then
-                echo "=== PreferenceFragmentCompat methods ==="
-                javap -cp classes.jar -public androidx.preference.PreferenceFragmentCompat 2>/dev/null | grep -i "divider\|decoration\|recycler\|viewCreated" || echo "No divider-related methods found"
-                echo ""
-                echo "=== PreferenceGroupAdapter methods ==="
-                javap -cp classes.jar -public androidx.preference.PreferenceGroupAdapter 2>/dev/null | grep -i "divider\|decoration\|bind" || echo "No divider-related methods found"
-              fi
-            elif [ -n "$PREF_JAR" ]; then
-              echo "=== PreferenceFragmentCompat methods ==="
-              javap -cp "$PREF_JAR" -public androidx.preference.PreferenceFragmentCompat 2>/dev/null | grep -i "divider\|decoration\|recycler\|viewCreated" || echo "No divider-related methods found"
-            else
-              echo "Preference library not found in Gradle cache"
-            fi
-            echo '```'
-            echo ""
-
-            echo "## [B6] 检查 Material 主题中 PreferenceCategory 的布局"
-            echo '```'
-            MAT_AAR=$(find ~/.gradle/caches -name "material-1.12.0.aar" 2>/dev/null | head -1 || true)
-            if [ -n "$MAT_AAR" ]; then
-              mkdir -p /tmp/mat_src || true
-              cd /tmp/mat_src || true
-              cp "$MAT_AAR" mat.aar 2>/dev/null || echo "Copy failed"
-              unzip -o mat.aar classes.jar -d . 2>/dev/null || true
-              if [ -f "classes.jar" ]; then
-                echo "=== MaterialPreferenceCategory ==="
-                javap -cp classes.jar -public com.google.android.material.preference.MaterialPreferenceCategory 2>/dev/null || echo "MaterialPreferenceCategory not found"
-              fi
-            else
-              echo "Material library not found in Gradle cache"
-            fi
-            echo '```'
-            echo ""
-
-            # ═══════════════════════════════════════════════════════
-            # C. 状态保存诊断
-            # ═══════════════════════════════════════════════════════
-            echo "## [C1] OptionsFragment 类结构概览（方法签名）"
-            echo '```'
-            safe_grep "override fun\|private fun\|fun \|companion object\|class " "$OF" | head -30
-            echo '```'
-            echo ""
-
-            echo "## [C2] recreate() 调用上下文"
-            echo '```'
-            if [ -f "app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt" ]; then
-              grep -n -B 5 -A 5 "recreate" app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt 2>/dev/null || echo "(recreate not found)"
-            else
-              echo "[FILE NOT FOUND] MainActivity.kt"
-            fi
-            echo '```'
-            echo ""
-
-            echo "## [C3] 检查 Preference 的 persistent 属性"
-            echo '```'
-            if [ -f "app/src/main/res/xml/options.xml" ]; then
-              grep -n "persistent" app/src/main/res/xml/options.xml 2>/dev/null || echo "(no persistent attribute found)"
-            else
-              echo "[FILE NOT FOUND] options.xml"
-            fi
-            echo '```'
-            echo ""
-
-            echo "## [C4] fontVariationSettings 所有引用"
-            echo '```'
-            safe_grep "fontVariationSettings" "$OF"
-            echo '```'
-          } > "$R"
-
-          cat "$R"
-
-      - name: Upload
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: deep-diagnosis
-          path: deep_diagnosis.txt
-          retention-days: 14
+          name: debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Show injected code
+        shell: bash
+        run: |
+          echo "=== Injected diagnostic code ==="
+          grep -n -A 25 "DIVIDER_DIAG" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt | head -30
