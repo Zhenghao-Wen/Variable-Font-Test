@@ -51,14 +51,13 @@ class SliderPreference @JvmOverloads constructor(
         isIconSpaceReserved = true
     }
 
-    // 修复：代码动态创建的 Preference 不经过 PreferenceInflater，
-    // 不会应用 Preference.Material 样式中的 allowDivider=false。
-    // 重写 getter 强制返回 false，禁止 DividerDecoration 绘制多余分隔线。
-    override fun isDividerAllowedAbove(): Boolean = false
-    override fun isDividerAllowedBelow(): Boolean = false
-
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
         super.onBindViewHolder(holder)
+
+        // 修复：super 从私有字段读取 divider 标志（主题默认 true），
+        // 在 PreferenceViewHolder 上覆盖为 false，与 Preference.Material 样式一致。
+        holder.setDividerAllowedAbove(false)
+        holder.setDividerAllowedBelow(false)
 
         val s = holder.findViewById(R.id.preference_slider) as? Slider ?: return
         val vt = holder.findViewById(R.id.slider_value) as? TextView
