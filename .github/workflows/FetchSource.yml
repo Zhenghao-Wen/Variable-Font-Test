@@ -1,4 +1,4 @@
-name: Extract State Logic Only
+name: Extract Three Methods Verbatim
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
           ref: QwenCode
           fetch-depth: 1
 
-      - name: Extract state-related code
+      - name: Extract methods
         shell: bash
         run: |
           set -euo pipefail
@@ -26,25 +26,42 @@ jobs:
 
           OF="app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
 
-          # 安全执行 sed 行号范围（若文件不存在或行号无效则输出提示）
-          safe_sed_range() {
+          # ── 安全函数 ──
+          safe_cat_range() {
             local file="$1" start="$2" end="$3"
             if [ ! -f "$file" ]; then
               echo "[FILE NOT FOUND] $file"
               return 0
             fi
             if [ -z "$start" ] || [ "$start" -le 0 ]; then
-              echo "(line range invalid or not found)"
+              echo "(line range invalid)"
               return 0
             fi
-            # 修正 end 可能为空
             if [ -z "$end" ]; then
               end="$start"
             fi
-            sed -n "${start},${end}p" "$file" 2>/dev/null || echo "(sed range error)"
+            sed -n "${start},${end}p" "$file" 2>/dev/null || echo "(sed error)"
           }
 
-          # 安全执行 grep（输出匹配行或默认信息）
+          get_line() {
+            local pattern="$1" file="$2"
+            if [ ! -f "$file" ]; then
+              echo ""
+              return 0
+            fi
+            grep -n "$pattern" "$file" 2>/dev/null | head -1 | cut -d: -f1 || echo ""
+          }
+
+          get_method_end() {
+            local file="$1" start="$2"
+            if [ ! -f "$file" ] || [ -z "$start" ] || [ "$start" -le 0 ]; then
+              echo ""
+              return 0
+            fi
+            # 查找下一个以 4 空格开头的 fun/override/private 行
+            awk -v s="$start" 'NR>s && /^    (override |private |fun )/{print NR; exit}' "$file" 2>/dev/null || echo ""
+          }
+
           safe_grep() {
             local pattern="$1" file="$2"
             if [ ! -f "$file" ]; then
@@ -54,109 +71,108 @@ jobs:
             grep -n "$pattern" "$file" 2>/dev/null || echo "(no matches)"
           }
 
-          # 安全执行 grep -B -A
-          safe_grep_context() {
-            local pattern="$1" file="$2"
-            if [ ! -f "$file" ]; then
-              echo "[FILE NOT FOUND] $file"
-              return 0
-            fi
-            grep -n -B 5 -A 10 "$pattern" "$file" 2>/dev/null || echo "(no matches)"
-          }
-
-          # 安全执行 head 用于特定行号
-          get_line_number() {
-            local pattern="$1" file="$2"
-            if [ ! -f "$file" ]; then
-              echo ""
-              return 0
-            fi
-            grep -n "$pattern" "$file" 2>/dev/null | head -1 | cut -d: -f1 || echo ""
-          }
-
           {
-            echo "# State Logic Extraction"
+            echo "# Three Methods Verbatim"
             echo "# Commit: $(git rev-parse HEAD)"
             echo ""
 
-            echo "## [1] companion object (lines 53-60)"
+            echo "## [1] companion object + fields (try lines 53-65, fallback to search)"
             echo '```kotlin'
-            safe_sed_range "$OF" 53 60
-            echo '```'
-            echo ""
-
-            echo "## [2] onPause / persistSettings / restoreSettings 是否存在"
-            echo '```'
-            safe_grep "onPause\|persistSettings\|restoreSettings\|PREF_VARIATION_STATE\|PREF_FEATURE_STATE\|onSaveInstanceState" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [3] onViewCreated 前 30 行（恢复逻辑区域）"
-            echo '```kotlin'
-            LINE=$(get_line_number "override fun onViewCreated" "$OF")
-            if [ -n "$LINE" ] && [ "$LINE" -gt 0 ]; then
-              END=$((LINE + 30))
-              safe_sed_range "$OF" "$LINE" "$END"
-            else
-              echo "(onViewCreated not found)"
-            fi
-            echo '```'
-            echo ""
-
-            echo "## [4] currentValue 逻辑（替换循环内）"
-            echo '```kotlin'
+            # 先尝试固定行号，若失败则用 grep 定位
             if [ -f "$OF" ]; then
-              grep -n -A 20 "val currentValue = when" "$OF" 2>/dev/null | head -25 || echo "(no matches)"
+              sed -n '53,65p' "$OF" 2>/dev/null | grep -q . && sed -n '53,65p' "$OF" || {
+                echo "# Fixed lines 53-65 not valid; searching companion object:"
+                START=$(get_line "companion object" "$OF")
+                if [ -n "$START" ]; then
+                  END=$((START + 15))
+                  safe_cat_range "$OF" "$START" "$END"
+                else
+                  echo "companion object not found"
+                fi
+              }
             else
               echo "[FILE NOT FOUND] $OF"
             fi
             echo '```'
             echo ""
 
-            echo "## [5] 预览恢复逻辑（onViewCreated 末尾）"
+            echo "## [2] onPause method (exact lines)"
             echo '```kotlin'
-            if [ -f "$OF" ]; then
-              grep -n -B 2 -A 5 "fontVariationSettings.isNotEmpty\|fontFeatureSettings.isNotEmpty" "$OF" 2>/dev/null || echo "(no matches)"
+            START=$(get_line "override fun onPause" "$OF")
+            if [ -n "$START" ]; then
+              END=$(get_method_end "$OF" "$START")
+              if [ -n "$END" ]; then
+                safe_cat_range "$OF" "$START" "$((END-1))"
+              else
+                # 如果找不到下一个方法，取后续 20 行
+                safe_cat_range "$OF" "$START" "$((START+20))"
+              fi
             else
-              echo "[FILE NOT FOUND] $OF"
+              echo "onPause NOT FOUND"
             fi
             echo '```'
             echo ""
 
-            echo "## [6] handler 中是否有 persistSettings 调用"
-            echo '```'
-            safe_grep "persistSettings" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [7] 完整 companion object + 前后 5 行上下文"
+            echo "## [3] persistSettings method (exact lines)"
             echo '```kotlin'
-            safe_grep_context "companion object" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [8] 检查 SharedPreferences 相关 import"
-            echo '```'
-            safe_grep "SharedPreferences\|PreferenceManager\|getSharedPreferences" "$OF"
-            echo '```'
-            echo ""
-
-            echo "## [9] MainActivity recreate 上下文"
-            echo '```kotlin'
-            MA="app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt"
-            if [ -f "$MA" ]; then
-              grep -n -B 3 -A 3 "recreate" "$MA" 2>/dev/null || echo "(recreate not found)"
+            START=$(get_line "private fun persistSettings" "$OF")
+            if [ -n "$START" ]; then
+              END=$(get_method_end "$OF" "$START")
+              if [ -n "$END" ]; then
+                safe_cat_range "$OF" "$START" "$((END-1))"
+              else
+                safe_cat_range "$OF" "$START" "$((START+20))"
+              fi
             else
-              echo "[FILE NOT FOUND] $MA"
+              echo "persistSettings NOT FOUND"
             fi
             echo '```'
-          } > state_logic.txt
+            echo ""
 
-          cat state_logic.txt
+            echo "## [4] restoreSettings method (exact lines)"
+            echo '```kotlin'
+            START=$(get_line "private fun restoreSettings" "$OF")
+            if [ -n "$START" ]; then
+              END=$(get_method_end "$OF" "$START")
+              if [ -n "$END" ]; then
+                safe_cat_range "$OF" "$START" "$((END-1))"
+              else
+                safe_cat_range "$OF" "$START" "$((START+25))"
+              fi
+            else
+              echo "restoreSettings NOT FOUND"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [5] onViewCreated 前 15 行（确认 restoreSettings 调用位置）"
+            echo '```kotlin'
+            START=$(get_line "override fun onViewCreated" "$OF")
+            if [ -n "$START" ]; then
+              safe_cat_range "$OF" "$START" "$((START+14))"
+            else
+              echo "onViewCreated NOT FOUND"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [6] 所有使用 PREF_ 常量的行"
+            echo '```'
+            safe_grep "PREF_VARIATION_STATE\|PREF_FEATURE_STATE\|PREF_FONT_VARIATION\|PREF_FONT_FEATURE" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [7] 所有 joinToString / JSONObject / split 调用"
+            echo '```'
+            safe_grep "joinToString\|JSONObject\|\.split\|\\\\u0000\|\\\\u0001" "$OF"
+            echo '```'
+          } > three_methods.txt
+
+          cat three_methods.txt
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: state-logic
-          path: state_logic.txt
+          name: three-methods
+          path: three_methods.txt
           retention-days: 7
