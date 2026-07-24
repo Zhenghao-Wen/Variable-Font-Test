@@ -395,6 +395,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             prefs.edit()
                 .remove(PREF_VARIATION_STATE)
                 .remove(PREF_FEATURE_STATE)
+                .remove(Constants.PREF_CUSTOM_PREFS_META)  // 清除自定义参数元数据
                 .apply()
             return
         }
