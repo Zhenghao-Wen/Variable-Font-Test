@@ -47,4 +47,11 @@ object Constants {
     // ── Keep params on launch toggle ──
     const val PREF_KEEP_PARAMS = "keep_params_on_launch"
     const val PREF_CUSTOM_PREFS_META = "custom_prefs_metadata"
+    
+    // ── Mode switch flag ──
+    const val PREF_IS_MODE_SWITCH = "is_mode_switch"
+    
+    // ── Font family persistence ──
+    const val PREF_FONT_FAMILY = "pref_font_family"
+    const val PREF_CUSTOM_FONT_URI = "pref_custom_font_uri"
 }

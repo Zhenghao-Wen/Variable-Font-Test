@@ -108,6 +108,7 @@ class MainActivity : AppCompatActivity() {
                         menuItem.isChecked = newState
                         prefs.edit()
                             .putBoolean(Constants.PREF_USE_MD3_SLIDER, newState)
+                            .putBoolean(Constants.PREF_IS_MODE_SWITCH, true)  // ← 标记为模式切换
                             .apply()
                         recreate()
                         true

@@ -380,16 +380,26 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
     private fun restoreSettings() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        // 仅在用户开启"下次启动不重置参数"时恢复
+
+        // 判断本次 onCreate 是"模式切换"还是"真正的应用启动"
+        val isModeSwitch = prefs.getBoolean(Constants.PREF_IS_MODE_SWITCH, false)
+        if (isModeSwitch) {
+            // 消费标志，防止下次启动误判
+            prefs.edit().remove(Constants.PREF_IS_MODE_SWITCH).apply()
+        }
+
+        // 模式切换：无条件恢复（SeekBar↔Slider 必须无缝）
+        // 应用启动：仅在用户开启"下次启动不重置参数"时恢复
         val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
-        if (!keepParams) {
-            // 清除上次保存的状态，确保使用默认值
+        if (!isModeSwitch && !keepParams) {
             prefs.edit()
                 .remove(PREF_VARIATION_STATE)
                 .remove(PREF_FEATURE_STATE)
                 .apply()
             return
         }
+
+        // ── 恢复逻辑（不变）──
         prefs.getString(PREF_VARIATION_STATE, null)?.let { raw ->
             try {
                 val json = org.json.JSONObject(raw)
@@ -438,7 +448,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
     }
 
     /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
-    private fun restoreCustomPrefs(useMd3Slider: Boolean) {
+    private fun restoreCustomPrefs(useMd3Slider: Boolean, applyVariation: (String) -> Unit) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
         try {
@@ -457,7 +467,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 val setSetting: (String, String) -> Unit = if (categoryKey == "variations") {
                     { tagName, value ->
                         fontVariationSettings[tagName] = value
-                        // setVariation 在 onViewCreated 中定义为局部函数，此处通过预览文本间接更新
+                        applyVariation(fontVariationSettings.toFeatures())
                     }
                 } else {
                     { tagName, value ->
@@ -498,6 +508,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                     val v = newValue.toString().toFloatOrNull()
                                     if (v != null) {
                                         fontVariationSettings[key] = v.toString()
+                                        applyVariation(fontVariationSettings.toFeatures())
                                         persistSettings()
                                         true
                                     } else false
@@ -517,6 +528,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                     val v = newValue.toString().toFloatOrNull()
                                     if (v != null) {
                                         fontVariationSettings[key] = v.toString()
+                                        applyVariation(fontVariationSettings.toFeatures())
                                         persistSettings()
                                         true
                                     } else false
@@ -533,10 +545,31 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             text = fontVariationSettings[key] ?: fontFeatureSettings[key]
                             setOnPreferenceChangeListener { _, newValue ->
                                 fontVariationSettings[key] = newValue.toString()
+                                applyVariation(fontVariationSettings.toFeatures())
                                 persistSettings()
                                 true
                             }
                         }.also { category.addPreference(it) }
+                    }
+                }
+            }
+            // ── 重排序：确保自定义参数在预设滑块之后、"添加/文本模式"按钮之前 ──
+            listOf(
+                findPreference<PreferenceCategory>(Constants.PREF_CATEGORY_VARIATIONS),
+                findPreference<PreferenceCategory>(Constants.PREF_CATEGORY_FONT_FEATURES)
+            ).forEach { cat ->
+                cat ?: return@forEach
+                var idx = 0
+                cat.forEach { pref ->
+                    when (pref.key) {
+                        Constants.PREF_ADD_FONT_VARIATION,
+                        Constants.PREF_ADD_FONT_FEATURE ->
+                            pref.order = Int.MAX_VALUE - 1
+                        Constants.PREF_EDIT_VARIATION,
+                        Constants.PREF_EDIT_FEATURE ->
+                            pref.order = Int.MAX_VALUE
+                        else ->
+                            pref.order = idx++
                     }
                 }
             }
@@ -626,6 +659,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         fontFamilies?.setOnPreferenceChangeListener { _, newValue ->
+            // 持久化字体选择
+            PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                .putString(Constants.PREF_FONT_FAMILY, newValue.toString())
+                .apply()
             when {
                 valueToTypeface.contains(newValue) -> {
                     customFont?.isVisible = false
@@ -649,6 +686,35 @@ class OptionsFragment : PreferenceFragmentCompat() {
         customFont?.setOnPreferenceClickListener {
             getFont.launch("font/*")
             true
+        }
+
+        // ── 恢复字体选择（模式切换 / 启动时均适用）──
+        val savedFontFamily = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            .getString(Constants.PREF_FONT_FAMILY, null)
+        if (savedFontFamily != null && savedFontFamily != "default") {
+            fontFamilies?.value = savedFontFamily
+            when {
+                valueToTypeface.contains(savedFontFamily) -> {
+                    customFont?.isVisible = false
+                    ttcIndex?.isVisible = false
+                    previewContent?.typeface = valueToTypeface[savedFontFamily]
+                }
+                savedFontFamily == Constants.OPTION_CUSTOM_VALUE -> {
+                    customFont?.isVisible = true
+                    ttcIndex?.isVisible = true
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        ttcIndex?.isEnabled = true
+                    }
+                    val savedUri = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                        .getString(Constants.PREF_CUSTOM_FONT_URI, null)
+                    if (savedUri != null) {
+                        try {
+                            changeFontFromUri(Uri.parse(savedUri))
+                        } catch (_: Exception) { }
+                    }
+                }
+            }
+            setVariation(fontVariationSettings.toFeatures())
         }
 
         // ── Variation axis change handlers (shared between SeekBar & Slider) ──
@@ -860,7 +926,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         // ── 恢复自定义参数 UI 控件 ──
-        restoreCustomPrefs(useMd3Slider)
+        restoreCustomPrefs(useMd3Slider) { settings -> setVariation(settings) }
 
         variationEditor?.setOnPreferenceChangeListener { _, newValue ->
             try {
@@ -1055,6 +1121,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
     }
 
     private fun changeFontFromUri(uri: Uri) {
+        // 持久化自定义字体 URI
+        PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+            .putString(Constants.PREF_CUSTOM_FONT_URI, uri.toString())
+            .apply()
+
         activity?.runOnUiThread {
             val previewContent: EditText? = parentFragment?.view?.findViewById(R.id.preview_content)
 
