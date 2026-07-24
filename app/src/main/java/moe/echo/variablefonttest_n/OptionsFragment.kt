@@ -55,8 +55,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private companion object {
         const val PREF_VARIATION_STATE = "pref_variation_state"
         const val PREF_FEATURE_STATE = "pref_feature_state"
-        const val PREF_FONT_VARIATION_SETTINGS = "pref_font_variation_settings"
-        const val PREF_FONT_FEATURE_SETTINGS = "pref_font_feature_settings"
     }
 
     private val fontVariationSettings = mutableMapOf<String, String>()
@@ -352,37 +350,37 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
     override fun onPause() {
         super.onPause()
-        // 每次暂停时自动持久化参数状态（recreate / 配置变更 / 进程回收均可靠）
-        PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
-            .putString(PREF_VARIATION_STATE,
-                fontVariationSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
-            .putString(PREF_FEATURE_STATE,
-                fontFeatureSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
-            .apply()
+        persistSettings()
     }
 
     private fun persistSettings() {
+        val variationJson = org.json.JSONObject()
+        fontVariationSettings.forEach { (k, v) -> variationJson.put(k, v) }
+        val featureJson = org.json.JSONObject()
+        fontFeatureSettings.forEach { (k, v) -> featureJson.put(k, v) }
         PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
-            .putString(PREF_FONT_VARIATION_SETTINGS,
-                fontVariationSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
-            .putString(PREF_FONT_FEATURE_SETTINGS,
-                fontFeatureSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
+            .putString(PREF_VARIATION_STATE, variationJson.toString())
+            .putString(PREF_FEATURE_STATE, featureJson.toString())
             .apply()
     }
 
     private fun restoreSettings() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         prefs.getString(PREF_VARIATION_STATE, null)?.let { raw ->
-            if (raw.isNotEmpty()) raw.split("\u0000").forEach { entry ->
-                val p = entry.split("\u0001", limit = 2)
-                if (p.size == 2) fontVariationSettings[p[0]] = p[1]
-            }
+            try {
+                val json = org.json.JSONObject(raw)
+                json.keys().forEach { key ->
+                    fontVariationSettings[key] = json.getString(key)
+                }
+            } catch (_: Exception) { }
         }
         prefs.getString(PREF_FEATURE_STATE, null)?.let { raw ->
-            if (raw.isNotEmpty()) raw.split("\u0000").forEach { entry ->
-                val p = entry.split("\u0001", limit = 2)
-                if (p.size == 2) fontFeatureSettings[p[0]] = p[1]
-            }
+            try {
+                val json = org.json.JSONObject(raw)
+                json.keys().forEach { key ->
+                    fontFeatureSettings[key] = json.getString(key)
+                }
+            } catch (_: Exception) { }
         }
     }
 
