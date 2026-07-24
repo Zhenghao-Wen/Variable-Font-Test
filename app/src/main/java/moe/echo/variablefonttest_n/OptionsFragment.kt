@@ -277,6 +277,20 @@ class OptionsFragment : PreferenceFragmentCompat() {
             }
             preferences.addPreference(finalPreference)
 
+            // ── 保存自定义参数元数据（用于 recreate 后重建 UI）──
+            saveCustomPrefMeta(
+                context = context,
+                key = tagName,
+                type = typeValues[selectedItemPosition],
+                category = if (preferences.key == Constants.PREF_CATEGORY_VARIATIONS) "variations" else "fontFeatures",
+                min = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
+                    (finalPreference as? SeekBarPreference)?.min ?: 0 else 0,
+                max = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
+                    (finalPreference as? SeekBarPreference)?.max ?: 100 else 100,
+                step = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
+                    (finalPreference as? SeekBarPreference)?.seekBarIncrement ?: 1 else 1
+            )
+
             // Reorganize preferences to make add & edit preference always at bottom
             preferences.forEach {
                 when (it.key) {
@@ -366,6 +380,16 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
     private fun restoreSettings() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        // 仅在用户开启"下次启动不重置参数"时恢复
+        val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
+        if (!keepParams) {
+            // 清除上次保存的状态，确保使用默认值
+            prefs.edit()
+                .remove(PREF_VARIATION_STATE)
+                .remove(PREF_FEATURE_STATE)
+                .apply()
+            return
+        }
         prefs.getString(PREF_VARIATION_STATE, null)?.let { raw ->
             try {
                 val json = org.json.JSONObject(raw)
@@ -382,6 +406,141 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 }
             } catch (_: Exception) { }
         }
+    }
+
+    /** 保存自定义参数元数据到 SharedPreferences */
+    private fun saveCustomPrefMeta(
+        context: Context, key: String, type: String, category: String,
+        min: Int, max: Int, step: Int
+    ) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
+        try {
+            val arr = org.json.JSONArray(raw)
+            // 移除同 key 旧条目
+            val filtered = org.json.JSONArray()
+            for (i in 0 until arr.length()) {
+                if (arr.getJSONObject(i).optString("key") != key) {
+                    filtered.put(arr.getJSONObject(i))
+                }
+            }
+            // 添加新条目
+            filtered.put(org.json.JSONObject().apply {
+                put("key", key)
+                put("type", type)
+                put("category", category)
+                put("min", min)
+                put("max", max)
+                put("step", step)
+            })
+            prefs.edit().putString(Constants.PREF_CUSTOM_PREFS_META, filtered.toString()).apply()
+        } catch (_: Exception) { }
+    }
+
+    /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
+    private fun restoreCustomPrefs(useMd3Slider: Boolean) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
+        try {
+            val arr = org.json.JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val meta = arr.getJSONObject(i)
+                val key = meta.getString("key")
+                val type = meta.getString("type")
+                val categoryKey = meta.getString("category")
+                val category: PreferenceCategory = when (categoryKey) {
+                    "variations" -> findPreference(Constants.PREF_CATEGORY_VARIATIONS) ?: continue
+                    else -> findPreference(Constants.PREF_CATEGORY_FONT_FEATURES) ?: continue
+                }
+                // 跳过已存在的（避免重复）
+                if (findPreference<Preference>(key) != null) continue
+                val setSetting: (String, String) -> Unit = if (categoryKey == "variations") {
+                    { tagName, value ->
+                        fontVariationSettings[tagName] = value
+                        // setVariation 在 onViewCreated 中定义为局部函数，此处通过预览文本间接更新
+                    }
+                } else {
+                    { tagName, value ->
+                        fontFeatureSettings[tagName] = value
+                    }
+                }
+                when (type) {
+                    Constants.ADD_FEATURE_TYPE_SWITCH -> {
+                        SwitchPreferenceCompat(requireContext()).apply {
+                            this.key = key
+                            title = key
+                            isPersistent = false
+                            isChecked = fontFeatureSettings[key] == "1"
+                            setOnPreferenceChangeListener { _, _ ->
+                                fontFeatureSettings[key] = if (!isChecked) "1" else "0"
+                                persistSettings()
+                                true
+                            }
+                        }.also { category.addPreference(it) }
+                    }
+                    Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
+                        val min = meta.optInt("min", 0)
+                        val max = meta.optInt("max", 100)
+                        val step = meta.optInt("step", 1)
+                        val savedValue = fontVariationSettings[key]?.toFloatOrNull()
+                        if (useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            SliderPreference(requireContext()).apply {
+                                this.key = key
+                                title = key
+                                summary = key
+                                valueFrom = min.toFloat()
+                                valueTo = max.toFloat()
+                                stepSize = step.toFloat().coerceAtLeast(1f)
+                                sliderValue = savedValue ?: min.toFloat()
+                                showLabel = false
+                                isPersistent = false
+                                setOnPreferenceChangeListener { _, newValue ->
+                                    val v = newValue.toString().toFloatOrNull()
+                                    if (v != null) {
+                                        fontVariationSettings[key] = v.toString()
+                                        persistSettings()
+                                        true
+                                    } else false
+                                }
+                            }.also { category.addPreference(it) }
+                        } else {
+                            MD3SeekBarPreference(requireContext()).apply {
+                                this.key = key
+                                title = key
+                                this.min = min
+                                this.max = max
+                                seekBarIncrement = step
+                                updatesContinuously = true
+                                isPersistent = false
+                                if (savedValue != null) value = savedValue.toInt()
+                                setOnPreferenceChangeListener { _, newValue ->
+                                    val v = newValue.toString().toFloatOrNull()
+                                    if (v != null) {
+                                        fontVariationSettings[key] = v.toString()
+                                        persistSettings()
+                                        true
+                                    } else false
+                                }
+                            }.also { category.addPreference(it) }
+                        }
+                    }
+                    Constants.ADD_FEATURE_TYPE_EDIT_TEXT -> {
+                        EditTextPreference(requireContext()).apply {
+                            this.key = key
+                            title = key
+                            dialogTitle = key
+                            isPersistent = false
+                            text = fontVariationSettings[key] ?: fontFeatureSettings[key]
+                            setOnPreferenceChangeListener { _, newValue ->
+                                fontVariationSettings[key] = newValue.toString()
+                                persistSettings()
+                                true
+                            }
+                        }.also { category.addPreference(it) }
+                    }
+                }
+            }
+        } catch (_: Exception) { }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -699,6 +858,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
             wdth?.setOnPreferenceChangeListener { _, newValue -> wdthHandler(newValue) }
             wght?.setOnPreferenceChangeListener { _, newValue -> wghtHandler(newValue) }
         }
+
+        // ── 恢复自定义参数 UI 控件 ──
+        restoreCustomPrefs(useMd3Slider)
 
         variationEditor?.setOnPreferenceChangeListener { _, newValue ->
             try {

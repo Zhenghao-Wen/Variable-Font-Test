@@ -7,4 +7,10 @@
         android:checkable="true"
         android:checked="false"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_keep_params"
+        android:title="@string/keep_params_on_launch"
+        android:checkable="true"
+        android:checked="false"
+        app:showAsAction="never" />
 </menu>

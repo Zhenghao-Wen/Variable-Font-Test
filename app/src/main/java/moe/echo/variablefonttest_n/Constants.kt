@@ -43,4 +43,8 @@ object Constants {
 
     // ── MD3 Slider toggle ──
     const val PREF_USE_MD3_SLIDER = "use_md3_slider"
+    
+    // ── Keep params on launch toggle ──
+    const val PREF_KEEP_PARAMS = "keep_params_on_launch"
+    const val PREF_CUSTOM_PREFS_META = "custom_prefs_metadata"
 }

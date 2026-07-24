@@ -99,6 +99,8 @@ class MainActivity : AppCompatActivity() {
             val prefs = PreferenceManager.getDefaultSharedPreferences(this)
             val useMd3Slider = prefs.getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
             tb.menu.findItem(R.id.action_enable_md3_slider)?.isChecked = useMd3Slider
+            val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
+            tb.menu.findItem(R.id.action_keep_params)?.isChecked = keepParams
             tb.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
                     R.id.action_enable_md3_slider -> {
@@ -108,6 +110,14 @@ class MainActivity : AppCompatActivity() {
                             .putBoolean(Constants.PREF_USE_MD3_SLIDER, newState)
                             .apply()
                         recreate()
+                        true
+                    }
+                    R.id.action_keep_params -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_KEEP_PARAMS, newState)
+                            .apply()
                         true
                     }
                     else -> false

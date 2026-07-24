@@ -59,4 +59,7 @@
 
     <!-- MD3 Slider toggle (Toolbar menu) -->
     <string name="enable_md3_slider">启用新版 Material 3 滑块</string>
+
+    <!-- Keep params on launch toggle -->
+    <string name="keep_params_on_launch">下次启动不重置参数</string>
 </resources>
