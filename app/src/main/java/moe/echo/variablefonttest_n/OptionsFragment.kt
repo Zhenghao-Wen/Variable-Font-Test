@@ -664,7 +664,35 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 }
             }
         } else {
-            // Default: use legacy SeekBar with original listeners
+            // ── 从 fontVariationSettings 恢复 SeekBar 值（逆转换）──
+            fontVariationSettings[Constants.VARIATION_AXIS_ITALIC]?.toFloatOrNull()?.let {
+                ital?.value = (it * 10).toInt()
+            }
+            fontVariationSettings[Constants.VARIATION_AXIS_OPTICAL_SIZE]?.toFloatOrNull()?.let {
+                opsz?.value = (it * 10).toInt()
+            }
+            fontVariationSettings[Constants.VARIATION_AXIS_SLANT]?.toFloatOrNull()?.let {
+                slnt?.value = (it + 90).toInt()
+            }
+            fontVariationSettings[Constants.VARIATION_AXIS_WIDTH]?.toFloatOrNull()?.let {
+                wdth?.value = (it * 10).toInt()
+            }
+            fontVariationSettings[Constants.VARIATION_AXIS_WEIGHT]?.toFloatOrNull()?.let {
+                wght?.value = it.toInt()
+            }
+
+            // ── 恢复 Feature 开关状态 ──
+            fontFeatureSettings[Constants.FEATURE_CHWS]?.let {
+                chws?.isChecked = (it == "1")
+            }
+            fontFeatureSettings[Constants.FEATURE_HALT]?.let {
+                halt?.isChecked = (it == "1")
+            }
+            fontFeatureSettings[Constants.FEATURE_FRAC]?.let {
+                frac?.isChecked = (it == "1")
+            }
+
+            // ── 设置 listeners ──
             ital?.setOnPreferenceChangeListener { _, newValue -> italHandler(newValue) }
             opsz?.setOnPreferenceChangeListener { _, newValue -> opszHandler(newValue) }
             slnt?.setOnPreferenceChangeListener { _, newValue -> slntHandler(newValue) }
