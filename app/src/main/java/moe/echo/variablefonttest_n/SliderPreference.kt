@@ -48,10 +48,14 @@ class SliderPreference @JvmOverloads constructor(
 
     init {
         layoutResource = R.layout.preference_widget_slider
-        // 动态创建的 Preference 不经过 XML 属性解析，iconSpaceReserved 默认为 false。
-        // 必须手动设为 true，否则 Preference.onBindViewHolder 会将 icon_frame 设为 GONE，
-        // 导致左侧缩进消失、Divider 位置异常。
         isIconSpaceReserved = true
+        // 修复：代码动态创建的 Preference 不经过 PreferenceInflater，
+        // 不会应用 Preference.Material 样式中的 allowDivider=false。
+        // PreferenceThemeOverlay 主题默认 allowDivider=true，
+        // 导致 DividerDecoration 在每项上下方绘制多余分隔线。
+        // 手动设为 false，与 Preference.Material 样式行为一致。
+        isDividerAllowedAbove = false
+        isDividerAllowedBelow = false
     }
 
     override fun onBindViewHolder(holder: PreferenceViewHolder) {

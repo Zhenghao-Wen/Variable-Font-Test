@@ -52,9 +52,11 @@ private const val TAG = "OptionsFragment"
 
 class OptionsFragment : PreferenceFragmentCompat() {
 
-    companion object {
+    private companion object {
         const val KEY_VARIATION_SETTINGS = "fontVariationSettings"
         const val KEY_FEATURE_SETTINGS = "fontFeatureSettings"
+        const val PREF_FONT_VARIATION_SETTINGS = "pref_font_variation_settings"
+        const val PREF_FONT_FEATURE_SETTINGS = "pref_font_feature_settings"
     }
 
     private val fontVariationSettings = mutableMapOf<String, String>()
@@ -207,6 +209,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                     tagName,
                                     ((value - offset * multiplier) / multiplier).toString()
                                 )
+                                persistSettings()
                                 true
                             } else false
                         }
@@ -266,6 +269,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         val value = newValue.toString().toFloatOrNull()
                         if (value != null) {
                             setSetting(tagName, value.toString())
+                            persistSettings()
                             true
                         } else false
                     }
@@ -346,26 +350,36 @@ class OptionsFragment : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.options, rootKey)
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putSerializable(KEY_VARIATION_SETTINGS, HashMap(fontVariationSettings))
-        outState.putSerializable(KEY_FEATURE_SETTINGS, HashMap(fontFeatureSettings))
+    private fun persistSettings() {
+        PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+            .putString(PREF_FONT_VARIATION_SETTINGS,
+                fontVariationSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
+            .putString(PREF_FONT_FEATURE_SETTINGS,
+                fontFeatureSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
+            .apply()
+    }
+
+    private fun restoreSettings() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        prefs.getString(PREF_FONT_VARIATION_SETTINGS, null)?.let { raw ->
+            if (raw.isNotEmpty()) raw.split("\u0000").forEach { entry ->
+                val p = entry.split("\u0001", limit = 2)
+                if (p.size == 2) fontVariationSettings[p[0]] = p[1]
+            }
+        }
+        prefs.getString(PREF_FONT_FEATURE_SETTINGS, null)?.let { raw ->
+            if (raw.isNotEmpty()) raw.split("\u0000").forEach { entry ->
+                val p = entry.split("\u0001", limit = 2)
+                if (p.size == 2) fontFeatureSettings[p[0]] = p[1]
+            }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // ── 恢复保存的参数状态（recreate / 配置变更后无缝衔接）──
-        savedInstanceState?.let { state ->
-            @Suppress("UNCHECKED_CAST")
-            (state.getSerializable(KEY_VARIATION_SETTINGS) as? HashMap<String, String>)?.let {
-                fontVariationSettings.putAll(it)
-            }
-            @Suppress("UNCHECKED_CAST")
-            (state.getSerializable(KEY_FEATURE_SETTINGS) as? HashMap<String, String>)?.let {
-                fontFeatureSettings.putAll(it)
-            }
-        }
+        // ── 从 SharedPreferences 恢复参数状态 ──
+        restoreSettings()
 
         val fontFamilyOptions = resources.getStringArray(R.array.font_family_values)
         // Drop custom font option
@@ -476,6 +490,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             if (value != null) {
                 fontVariationSettings[Constants.VARIATION_AXIS_ITALIC] = (value / 10).toString()
                 setVariation(fontVariationSettings.toFeatures())
+                persistSettings()
                 true
             } else false
         }
@@ -486,6 +501,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             if (value != null) {
                 fontVariationSettings[Constants.VARIATION_AXIS_OPTICAL_SIZE] = (value / 10).toString()
                 setVariation(fontVariationSettings.toFeatures())
+                persistSettings()
                 true
             } else false
         }
@@ -496,6 +512,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             if (value != null) {
                 fontVariationSettings[Constants.VARIATION_AXIS_SLANT] = (value - 90).toString()
                 setVariation(fontVariationSettings.toFeatures())
+                persistSettings()
                 true
             } else false
         }
@@ -506,6 +523,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             if (value != null) {
                 fontVariationSettings[Constants.VARIATION_AXIS_WIDTH] = (value / 10).toString()
                 setVariation(fontVariationSettings.toFeatures())
+                persistSettings()
                 true
             } else false
         }
@@ -516,6 +534,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             if (value != null) {
                 fontVariationSettings[Constants.VARIATION_AXIS_WEIGHT] = value.toString()
                 setVariation(fontVariationSettings.toFeatures())
+                persistSettings()
                 true
             } else false
         }
@@ -719,6 +738,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             setOnPreferenceChangeListener { _, _ ->
                 fontFeatureSettings[Constants.FEATURE_CHWS] = if (!isChecked) "1" else "0"
                 previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+                persistSettings()
                 true
             }
         }
@@ -727,6 +747,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             setOnPreferenceChangeListener { _, _ ->
                 fontFeatureSettings[Constants.FEATURE_HALT] = if (!isChecked) "1" else "0"
                 previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+                persistSettings()
                 true
             }
         }
@@ -735,6 +756,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             setOnPreferenceChangeListener { _, _ ->
                 fontFeatureSettings[Constants.FEATURE_FRAC] = if (!isChecked) "1" else "0"
                 previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+                persistSettings()
                 true
             }
         }
@@ -807,9 +829,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
         // ── 恢复预览文本的字体可变/特性设置 ──
         if (fontVariationSettings.isNotEmpty()) {
             setVariation(fontVariationSettings.toFeatures())
+            persistSettings()
         }
         if (fontFeatureSettings.isNotEmpty()) {
             previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+            persistSettings()
         }
     }
 
