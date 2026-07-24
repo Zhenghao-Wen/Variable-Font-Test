@@ -1,4 +1,4 @@
-name: Runtime Divider Diagnosis
+name: Extract State Logic Only
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - QwenMirror
 
 jobs:
-  diagnose:
+  extract:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,74 +18,145 @@ jobs:
           ref: QwenCode
           fetch-depth: 1
 
-      - name: Inject diagnostic code
+      - name: Extract state-related code
         shell: bash
         run: |
           set -euo pipefail
-          FILE="app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
+          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
 
-          if [ ! -f "$FILE" ]; then
-            echo "❌ ERROR: $FILE not found"
-            exit 1
-          fi
+          OF="app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
 
-          # 精确匹配标记行（含 / 转义）
-          MARKER='\/\/ ── 恢复预览文本的字体可变\/特性设置 ──'
-          if ! grep -q "$MARKER" "$FILE"; then
-            echo "❌ ERROR: Marker not found in $FILE"
-            exit 1
-          fi
+          # 安全执行 sed 行号范围（若文件不存在或行号无效则输出提示）
+          safe_sed_range() {
+            local file="$1" start="$2" end="$3"
+            if [ ! -f "$file" ]; then
+              echo "[FILE NOT FOUND] $file"
+              return 0
+            fi
+            if [ -z "$start" ] || [ "$start" -le 0 ]; then
+              echo "(line range invalid or not found)"
+              return 0
+            fi
+            # 修正 end 可能为空
+            if [ -z "$end" ]; then
+              end="$start"
+            fi
+            sed -n "${start},${end}p" "$file" 2>/dev/null || echo "(sed range error)"
+          }
 
-          sed -i "/$MARKER/ i\\
-          \        // ══ DIAGNOSTIC: Divider source detection ══\\
-          \        android.util.Log.d(\"DIVIDER_DIAG\", \"RecyclerView ItemDecoration count: \" + listView.itemDecorationCount)\\
-          \        for (i in 0 until listView.itemDecorationCount) {\\
-          \            android.util.Log.d(\"DIVIDER_DIAG\", \"ItemDecoration[\$i]: \" + listView.getItemDecorationAt(i).javaClass.name)\\
-          \        }\\
-          \        listView.post {\\
-          \            val childCount = listView.childCount\\
-          \            android.util.Log.d(\"DIVIDER_DIAG\", \"RecyclerView childCount: \$childCount\")\\
-          \            for (i in 0 until childCount) {\\
-          \                val child = listView.getChildAt(i)\\
-          \                val holder = listView.getChildViewHolder(child)\\
-          \                android.util.Log.d(\"DIVIDER_DIAG\", \"Child[\$i]: viewType=\${holder.itemViewType}, class=\${holder.javaClass.simpleName}, height=\${child.height}, top=\${child.top}\")\\
-          \                if (child is android.view.ViewGroup) {\\
-          \                    for (j in 0 until child.childCount) {\\
-          \                        val subChild = child.getChildAt(j)\\
-          \                        if (subChild.height <= 3 && subChild.width > 100) {\\
-          \                            android.util.Log.d(\"DIVIDER_DIAG\", \"  SUSPECT DIVIDER in Child[\$i].child[\$j]: \${subChild.javaClass.name}, h=\${subChild.height}, w=\${subChild.width}, bg=\${subChild.background}\")\\
-          \                        }\\
-          \                    }\\
-          \                }\\
-          \            }\\
-          \        }\\
-          \        // ══ END DIAGNOSTIC ══\\
-          " "$FILE"
+          # 安全执行 grep（输出匹配行或默认信息）
+          safe_grep() {
+            local pattern="$1" file="$2"
+            if [ ! -f "$file" ]; then
+              echo "[FILE NOT FOUND] $file"
+              return 0
+            fi
+            grep -n "$pattern" "$file" 2>/dev/null || echo "(no matches)"
+          }
 
-          echo "✅ Injection completed."
+          # 安全执行 grep -B -A
+          safe_grep_context() {
+            local pattern="$1" file="$2"
+            if [ ! -f "$file" ]; then
+              echo "[FILE NOT FOUND] $file"
+              return 0
+            fi
+            grep -n -B 5 -A 10 "$pattern" "$file" 2>/dev/null || echo "(no matches)"
+          }
 
-      - name: Build debug APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x gradlew
-          echo "Building debug APK..."
-          if ! ./gradlew app:assembleDebug 2>&1; then
-            echo "❌ Build failed. Check logs above."
-            exit 1
-          fi
-          echo "✅ Build succeeded."
+          # 安全执行 head 用于特定行号
+          get_line_number() {
+            local pattern="$1" file="$2"
+            if [ ! -f "$file" ]; then
+              echo ""
+              return 0
+            fi
+            grep -n "$pattern" "$file" 2>/dev/null | head -1 | cut -d: -f1 || echo ""
+          }
 
-      - name: Upload APK
+          {
+            echo "# State Logic Extraction"
+            echo "# Commit: $(git rev-parse HEAD)"
+            echo ""
+
+            echo "## [1] companion object (lines 53-60)"
+            echo '```kotlin'
+            safe_sed_range "$OF" 53 60
+            echo '```'
+            echo ""
+
+            echo "## [2] onPause / persistSettings / restoreSettings 是否存在"
+            echo '```'
+            safe_grep "onPause\|persistSettings\|restoreSettings\|PREF_VARIATION_STATE\|PREF_FEATURE_STATE\|onSaveInstanceState" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [3] onViewCreated 前 30 行（恢复逻辑区域）"
+            echo '```kotlin'
+            LINE=$(get_line_number "override fun onViewCreated" "$OF")
+            if [ -n "$LINE" ] && [ "$LINE" -gt 0 ]; then
+              END=$((LINE + 30))
+              safe_sed_range "$OF" "$LINE" "$END"
+            else
+              echo "(onViewCreated not found)"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [4] currentValue 逻辑（替换循环内）"
+            echo '```kotlin'
+            if [ -f "$OF" ]; then
+              grep -n -A 20 "val currentValue = when" "$OF" 2>/dev/null | head -25 || echo "(no matches)"
+            else
+              echo "[FILE NOT FOUND] $OF"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [5] 预览恢复逻辑（onViewCreated 末尾）"
+            echo '```kotlin'
+            if [ -f "$OF" ]; then
+              grep -n -B 2 -A 5 "fontVariationSettings.isNotEmpty\|fontFeatureSettings.isNotEmpty" "$OF" 2>/dev/null || echo "(no matches)"
+            else
+              echo "[FILE NOT FOUND] $OF"
+            fi
+            echo '```'
+            echo ""
+
+            echo "## [6] handler 中是否有 persistSettings 调用"
+            echo '```'
+            safe_grep "persistSettings" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [7] 完整 companion object + 前后 5 行上下文"
+            echo '```kotlin'
+            safe_grep_context "companion object" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [8] 检查 SharedPreferences 相关 import"
+            echo '```'
+            safe_grep "SharedPreferences\|PreferenceManager\|getSharedPreferences" "$OF"
+            echo '```'
+            echo ""
+
+            echo "## [9] MainActivity recreate 上下文"
+            echo '```kotlin'
+            MA="app/src/main/java/moe/echo/variablefonttest_n/MainActivity.kt"
+            if [ -f "$MA" ]; then
+              grep -n -B 3 -A 3 "recreate" "$MA" 2>/dev/null || echo "(recreate not found)"
+            else
+              echo "[FILE NOT FOUND] $MA"
+            fi
+            echo '```'
+          } > state_logic.txt
+
+          cat state_logic.txt
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: state-logic
+          path: state_logic.txt
           retention-days: 7
-          if-no-files-found: error
-
-      - name: Show injected code
-        shell: bash
-        run: |
-          echo "=== Injected diagnostic code ==="
-          grep -n -A 25 "DIVIDER_DIAG" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt | head -30
