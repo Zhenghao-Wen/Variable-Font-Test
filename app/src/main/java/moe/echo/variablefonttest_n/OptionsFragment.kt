@@ -53,8 +53,8 @@ private const val TAG = "OptionsFragment"
 class OptionsFragment : PreferenceFragmentCompat() {
 
     private companion object {
-        const val KEY_VARIATION_SETTINGS = "fontVariationSettings"
-        const val KEY_FEATURE_SETTINGS = "fontFeatureSettings"
+        const val PREF_VARIATION_STATE = "pref_variation_state"
+        const val PREF_FEATURE_STATE = "pref_feature_state"
         const val PREF_FONT_VARIATION_SETTINGS = "pref_font_variation_settings"
         const val PREF_FONT_FEATURE_SETTINGS = "pref_font_feature_settings"
     }
@@ -350,6 +350,17 @@ class OptionsFragment : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.options, rootKey)
     }
 
+    override fun onPause() {
+        super.onPause()
+        // 每次暂停时自动持久化参数状态（recreate / 配置变更 / 进程回收均可靠）
+        PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+            .putString(PREF_VARIATION_STATE,
+                fontVariationSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
+            .putString(PREF_FEATURE_STATE,
+                fontFeatureSettings.entries.joinToString("\u0000") { "${it.key}\u0001${it.value}" })
+            .apply()
+    }
+
     private fun persistSettings() {
         PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
             .putString(PREF_FONT_VARIATION_SETTINGS,
@@ -361,13 +372,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
     private fun restoreSettings() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        prefs.getString(PREF_FONT_VARIATION_SETTINGS, null)?.let { raw ->
+        prefs.getString(PREF_VARIATION_STATE, null)?.let { raw ->
             if (raw.isNotEmpty()) raw.split("\u0000").forEach { entry ->
                 val p = entry.split("\u0001", limit = 2)
                 if (p.size == 2) fontVariationSettings[p[0]] = p[1]
             }
         }
-        prefs.getString(PREF_FONT_FEATURE_SETTINGS, null)?.let { raw ->
+        prefs.getString(PREF_FEATURE_STATE, null)?.let { raw ->
             if (raw.isNotEmpty()) raw.split("\u0000").forEach { entry ->
                 val p = entry.split("\u0001", limit = 2)
                 if (p.size == 2) fontFeatureSettings[p[0]] = p[1]
