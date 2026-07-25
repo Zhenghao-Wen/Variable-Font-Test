@@ -148,7 +148,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         }
                     }
                 Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
-                    MD3SeekBarPreference(preferenceScreen.context).apply {
+                    moe.echo.variablefonttest_n.SeekBarPreference(preferenceScreen.context).apply {
                         val rawMin = seekBarMin.text.toString()
                         val rawMax = seekBarMax.text.toString()
                         val rawStep = seekBarStep.text.toString()
@@ -536,7 +536,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                 }
                             }.also { category.addPreference(it) }
                         } else {
-                            MD3SeekBarPreference(requireContext()).apply {
+                            moe.echo.variablefonttest_n.SeekBarPreference(requireContext()).apply {
                                 this.key = key
                                 title = key
                                 this.min = min
@@ -622,11 +622,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val customFont: Preference? = findPreference(Constants.PREF_CUSTOM_FONT)
 
         val variations: PreferenceCategory? = findPreference(Constants.PREF_CATEGORY_VARIATIONS)
-        val ital: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_ITALIC)
-        val opsz: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_OPTICAL_SIZE)
-        val slnt: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_SLANT)
-        val wdth: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WIDTH)
-        val wght: MD3SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WEIGHT)
+        val ital: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_ITALIC)
+        val opsz: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_OPTICAL_SIZE)
+        val slnt: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_SLANT)
+        val wdth: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WIDTH)
+        val wght: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WEIGHT)
         val variationEditor: EditTextPreference? = findPreference(Constants.PREF_VARIATION_EDITOR)
         val addVariation: Preference? = findPreference(Constants.PREF_ADD_FONT_VARIATION)
         val editVariation: Preference? = findPreference(Constants.PREF_EDIT_VARIATION)

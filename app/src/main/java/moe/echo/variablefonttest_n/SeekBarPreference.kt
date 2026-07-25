@@ -17,14 +17,14 @@ import com.google.android.material.color.MaterialColors
  * 从 PreferenceThemeOverlay 解析到的 colorSecondary (system_accent2_200)
  * 修正为 colorPrimary (system_accent1_200)。
  */
-class MD3SeekBarPreference @JvmOverloads constructor(
+class SeekBarPreference @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     // 关键修复：必须传入 seekBarPreferenceStyle，否则布局回退为
     // preference_material（不含 @+id/seekbar），导致 onBindViewHolder 闪退。
     // 标准 SeekBarPreference(Context, AttributeSet) 构造函数内部也是传入此值。
     defStyleAttr: Int = androidx.preference.R.attr.seekBarPreferenceStyle
-) : SeekBarPreference(context, attrs, defStyleAttr) {
+) : androidx.preference.SeekBarPreference(context, attrs, defStyleAttr) {
 
     override fun onBindViewHolder(view: PreferenceViewHolder) {
         // 先让父类完成标准绑定（SeekBar 值、min/max、showSeekBarValue 等）
