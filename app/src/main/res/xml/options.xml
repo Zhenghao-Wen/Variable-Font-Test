@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:key="optionPrefs">
+    android:key="optionPrefs"
+    app:iconTint="?attr/colorControlNormal">
 
     <PreferenceCategory
         android:key="normalCategory"
@@ -16,13 +17,13 @@
             android:defaultValue="20"
             android:persistent="false" />
 
-        <rikka.preference.SimpleMenuPreference
-            app:key="fontFamilies"
-            app:title="@string/font_family"
-            app:defaultValue="default"
-            app:entries="@array/font_families"
-            app:entryValues="@array/font_family_values"
-            app:summary="%s"
+        <ListPreference
+            android:key="fontFamilies"
+            android:title="@string/font_family"
+            android:defaultValue="default"
+            android:entries="@array/font_families"
+            android:entryValues="@array/font_family_values"
+            android:summary="%s"
             android:persistent="false" />
 
         <EditTextPreference
@@ -38,7 +39,8 @@
             android:key="customFont"
             app:isPreferenceVisible="false"
             android:title="@string/choose_font"
-            android:icon="@drawable/ic_baseline_open_in_new_24" />
+            android:icon="@drawable/ic_baseline_open_in_new_24"
+            android:iconSpaceReserved="false" />
 
     </PreferenceCategory>
 
@@ -55,7 +57,7 @@
             android:enabled="false"
             android:title="@string/unsupported_android" />
 
-        <SeekBarPreference
+        <moe.echo.variablefonttest_n.SeekBarPreference
             android:key="italAxis"
             android:summary="ital"
             android:title="@string/variation_italic"
@@ -65,7 +67,7 @@
             app:updatesContinuously="true"
             android:persistent="false" />
 
-        <SeekBarPreference
+        <moe.echo.variablefonttest_n.SeekBarPreference
             android:key="opszAxis"
             android:summary="opsz"
             android:title="@string/variation_optical_size"
@@ -75,7 +77,7 @@
             app:updatesContinuously="true"
             android:persistent="false" />
 
-        <SeekBarPreference
+        <moe.echo.variablefonttest_n.SeekBarPreference
             android:key="slntAxis"
             android:summary="slnt"
             android:title="@string/variation_slant"
@@ -85,7 +87,7 @@
             app:updatesContinuously="true"
             android:persistent="false" />
 
-        <SeekBarPreference
+        <moe.echo.variablefonttest_n.SeekBarPreference
             android:key="wdthAxis"
             android:summary="wdth"
             android:title="@string/variation_width"
@@ -95,7 +97,7 @@
             app:updatesContinuously="true"
             android:persistent="false" />
 
-        <SeekBarPreference
+        <moe.echo.variablefonttest_n.SeekBarPreference
             android:key="wghtAxis"
             android:summary="wght"
             android:title="@string/variation_weight"
@@ -117,12 +119,14 @@
         <Preference
             android:key="addVariation"
             android:title="@string/add_font_variation"
-            android:icon="@drawable/baseline_add_24" />
+            android:icon="@drawable/baseline_add_24"
+            android:iconSpaceReserved="false" />
 
         <Preference
             android:key="editVariation"
             android:title="@string/edit_variation_text"
-            android:icon="@drawable/ic_baseline_edit_24" />
+            android:icon="@drawable/ic_baseline_edit_24"
+            android:iconSpaceReserved="false" />
 
     </PreferenceCategory>
 
@@ -135,21 +139,24 @@
             android:title="@string/feature_chws"
             android:summary="@string/chws_description"
             android:defaultValue="true"
-            android:persistent="false" />
+            android:persistent="false"
+            android:iconSpaceReserved="false" />
 
         <SwitchPreferenceCompat
             android:key="haltFeature"
             android:title="@string/feature_halt"
             android:summary="@string/halt_description"
             android:defaultValue="false"
-            android:persistent="false" />
+            android:persistent="false"
+            android:iconSpaceReserved="false" />
 
         <SwitchPreferenceCompat
             android:key="fracFeature"
             android:title="@string/feature_frac"
             android:summary="@string/frac_description"
             android:defaultValue="false"
-            android:persistent="false" />
+            android:persistent="false"
+            android:iconSpaceReserved="false" />
 
         <EditTextPreference
             android:key="featureEditor"
@@ -161,12 +168,14 @@
         <Preference
             android:key="addFeature"
             android:title="@string/add_font_feature"
-            android:icon="@drawable/baseline_add_24" />
+            android:icon="@drawable/baseline_add_24"
+            android:iconSpaceReserved="false" />
 
         <Preference
             android:key="editFeature"
             android:title="@string/edit_feature_text"
-            android:icon="@drawable/ic_baseline_edit_24" />
+            android:icon="@drawable/ic_baseline_edit_24"
+            android:iconSpaceReserved="false" />
 
     </PreferenceCategory>
 
@@ -177,7 +186,8 @@
         <Preference
             android:key="sourceCode"
             android:title="@string/pref_source_code"
-            android:icon="@drawable/ic_baseline_code_24">
+            android:icon="@drawable/ic_baseline_code_24"
+            android:iconSpaceReserved="false">
 
             <intent android:action="android.intent.action.VIEW"
                 android:data="@string/project_homepage" />
@@ -188,7 +198,8 @@
             android:key="translators"
             android:summary="@string/pref_translator_list"
             android:title="@string/pref_translators"
-            android:icon="@drawable/translate_24px">
+            android:icon="@drawable/translate_24px"
+            android:iconSpaceReserved="false">
 
             <intent android:action="android.intent.action.VIEW"
                 android:data="@string/project_translators" />

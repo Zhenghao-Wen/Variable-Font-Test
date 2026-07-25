@@ -1,4 +1,4 @@
-package moe.echo.variablefonttest
+package moe.echo.variablefonttest_n
 
 object Constants {
     const val PREF_TEXT_SIZE = "textSize"
@@ -40,4 +40,18 @@ object Constants {
     const val ADD_FEATURE_TYPE_SWITCH = "switch"
     const val ADD_FEATURE_TYPE_SEEK_BAR = "seekBar"
     const val ADD_FEATURE_TYPE_EDIT_TEXT = "editText"
+
+    // ── MD3 Slider toggle ──
+    const val PREF_USE_MD3_SLIDER = "use_md3_slider"
+    
+    // ── Keep params on launch toggle ──
+    const val PREF_KEEP_PARAMS = "keep_params_on_launch"
+    const val PREF_CUSTOM_PREFS_META = "custom_prefs_metadata"
+    
+    // ── Mode switch flag ──
+    const val PREF_IS_MODE_SWITCH = "is_mode_switch"
+    
+    // ── Font family persistence ──
+    const val PREF_FONT_FAMILY = "pref_font_family"
+    const val PREF_CUSTOM_FONT_URI = "pref_custom_font_uri"
 }

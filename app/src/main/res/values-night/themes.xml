@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme with Material Design 3 -->
+    <!-- Night mode theme - uses Material 3 defaults with dynamic colors -->
     <style name="Theme.VariableFontTest" parent="@style/Theme.Material3.DayNight.NoActionBar">
         <!-- Enable edge-to-edge display -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
@@ -13,14 +13,7 @@
         <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
 
-        <!-- ══ 修复旧版 SeekBar 饱和度 ══ 强制 SeekBar 的 progressTint/thumbTint 解析到 ?attr/colorPrimary
-             （暗色动态取色 = system_accent1_200），而非被 PreferenceThemeOverlay 降级到 colorPrimaryContainer（system_accent1_100） -->
+        <!-- 修复旧版 SeekBar 饱和度：强制 progressTint/thumbTint 使用 colorPrimary -->
         <item name="android:seekBarStyle">@style/Widget.App.SeekBar.MD3Tint</item>
-    </style>
-
-    <!-- 旧版 SeekBar 的 MD3 色彩修正 -->
-    <style name="Widget.App.SeekBar.MD3Tint" parent="Widget.AppCompat.SeekBar">
-        <item name="android:progressTint">?attr/colorPrimary</item>
-        <item name="android:thumbTint">?attr/colorPrimary</item>
     </style>
 </resources>

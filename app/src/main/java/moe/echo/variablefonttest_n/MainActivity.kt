@@ -1,4 +1,4 @@
-package moe.echo.variablefonttest
+package moe.echo.variablefonttest_n
 
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -11,10 +11,17 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.FragmentContainerView
+import androidx.preference.PreferenceManager
 import com.google.android.material.appbar.AppBarLayout
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.color.DynamicColors
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            DynamicColors.applyToActivityIfAvailable(this)
+        }
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -84,5 +91,43 @@ class MainActivity : AppCompatActivity() {
                 windowInsets
             }
         }
+
+        // ── Toolbar 菜单：仅操作 toolbar.menu，不使用 onCreateOptionsMenu ──
+        val toolbar: MaterialToolbar? = findViewById(R.id.toolbar)
+        toolbar?.let { tb ->
+            // 从 SharedPreferences 同步 checkbox 状态到 Toolbar 的菜单实例
+            val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+            val useMd3Slider = prefs.getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+            tb.menu.findItem(R.id.action_enable_md3_slider)?.isChecked = useMd3Slider
+            val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
+            tb.menu.findItem(R.id.action_keep_params)?.isChecked = keepParams
+            tb.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.action_enable_md3_slider -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_USE_MD3_SLIDER, newState)
+                            .putBoolean(Constants.PREF_IS_MODE_SWITCH, true)  // ← 标记为模式切换
+                            .apply()
+                        recreate()
+                        true
+                    }
+                    R.id.action_keep_params -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_KEEP_PARAMS, newState)
+                            .apply()
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
     }
+    // ── 已删除 onCreateOptionsMenu ──
+    // 原因：MaterialToolbar 的 app:menu 由 Toolbar 自行 inflate，
+    // onCreateOptionsMenu 会创建第二个独立 Menu 实例，
+    // 导致 checkbox 状态写入错误的 Menu 对象。
 }

@@ -7,4 +7,4 @@ A Android app allow you input any words and adjust its wght that using system fo
 </a>
 
 # Preview
-https://github.com/WordlessEcho/Variable-Font-Test/assets/12007025/25bde05f-b851-45da-ac7e-15c4fd58228e
+https://github.com/Zhenghao-Wen/Variable-Font-Test/assets/12007025/25bde05f-b851-45da-ac7e-15c4fd58228e

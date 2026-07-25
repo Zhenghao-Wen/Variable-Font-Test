@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name">可变字体测试器</string>
+    <string name="app_name">可变字体测试器 N</string>
     <string name="project_translators" translatable="false">
-        https://github.com/WordlessEcho/Variable-Font-Test/blob/main/TRANSLATORS.md#zh-rCN
+        https://github.com/Zhenghao-Wen/Variable-Font-Test/blob/main/TRANSLATORS.md#zh-rCN
     </string>
 
     <string name="default_preview">（点击此处即可输入任意文字）这句话后来演变成“饮水思源”这个成语，意为喝水的时候想一想流水的源头，比喻不忘本。</string>
@@ -37,8 +37,10 @@
     <string name="edit_feature_ui">图形界面模式</string>
 
     <string name="tag_name">标签名</string>
+    <string name="tag_type">标签类型</string>
     <string name="tag_seek_bar_minimum">最小值</string>
     <string name="tag_seek_bar_maximum">最大值</string>
+    <string name="tag_seek_bar_step">步进值</string>
 
     <string name="feature_type_switch">开关</string>
     <string name="feature_type_seek_bar">拖动条</string>
@@ -54,4 +56,10 @@
     <string name="sans_serif">无衬线</string>
     <string name="serif">衬线</string>
     <string name="custom_font">自定义</string>
+
+    <!-- MD3 Slider toggle (Toolbar menu) -->
+    <string name="enable_md3_slider">启用新版 Material 3 滑块</string>
+
+    <!-- Keep params on launch toggle -->
+    <string name="keep_params_on_launch">下次启动不重置参数</string>
 </resources>

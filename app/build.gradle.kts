@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "moe.echo.variablefonttest"
+    namespace = "moe.echo.variablefonttest_n"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "moe.echo.variablefonttest"
+        applicationId = "moe.echo.variablefonttest_n"
         minSdk = 21
         targetSdk = 35
         versionCode = 20
@@ -20,6 +20,15 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("KEYSTORE_FILE") ?: "/dev/null")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -27,6 +36,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -58,7 +68,7 @@ dependencies {
 //    implementation(libs.androidx.ui)
 //    implementation(libs.androidx.ui.graphics)
 //    implementation(libs.androidx.ui.tooling.preview)
-//    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -70,5 +80,4 @@ dependencies {
 //    implementation(libs.androidx.appcompat)
     implementation(libs.google.material)
     implementation(libs.androidx.preference)
-    implementation(libs.rikkax.preference.simplemenu)
 }
