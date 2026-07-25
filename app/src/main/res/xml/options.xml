@@ -17,13 +17,13 @@
             android:defaultValue="20"
             android:persistent="false" />
 
-        <rikka.preference.SimpleMenuPreference
-            app:key="fontFamilies"
-            app:title="@string/font_family"
-            app:defaultValue="default"
-            app:entries="@array/font_families"
-            app:entryValues="@array/font_family_values"
-            app:summary="%s"
+        <ListPreference
+            android:key="fontFamilies"
+            android:title="@string/font_family"
+            android:defaultValue="default"
+            android:entries="@array/font_families"
+            android:entryValues="@array/font_family_values"
+            android:summary="%s"
             android:persistent="false" />
 
         <EditTextPreference

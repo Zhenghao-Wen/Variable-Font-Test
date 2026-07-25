@@ -20,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
 import androidx.preference.EditTextPreference
+import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
@@ -30,7 +31,6 @@ import androidx.preference.PreferenceManager
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import rikka.preference.SimpleMenuPreference
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -308,10 +308,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
     // ═══ MD3 EditTextPreference 对话框接管 ═══
     override fun onDisplayPreferenceDialog(preference: Preference) {
-        if (preference is EditTextPreference) {
-            showMd3EditTextDialog(preference)
-        } else {
-            super.onDisplayPreferenceDialog(preference)
+        when (preference) {
+            is EditTextPreference -> showMd3EditTextDialog(preference)
+            is ListPreference -> showMd3ListDialog(preference)
+            else -> super.onDisplayPreferenceDialog(preference)
         }
     }
 
@@ -356,6 +356,24 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
             }
     }
+
+    private fun showMd3ListDialog(preference: ListPreference) {
+        val entries = preference.entries ?: return
+        val entryValues = preference.entryValues ?: return
+        val currentIndex = entryValues.indexOf(preference.value).coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(preference.title)
+            .setSingleChoiceItems(entries, currentIndex) { dialog, which ->
+                val newValue = entryValues[which].toString()
+                if (preference.callChangeListener(newValue)) {
+                    preference.value = newValue
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
     // ═══ MD3 EditTextPreference 对话框接管结束 ═══
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -395,7 +413,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
             prefs.edit()
                 .remove(PREF_VARIATION_STATE)
                 .remove(PREF_FEATURE_STATE)
-                .remove(Constants.PREF_CUSTOM_PREFS_META)  // 清除自定义参数元数据
+                .remove(Constants.PREF_CUSTOM_PREFS_META)
+                .remove(Constants.PREF_FONT_FAMILY)       // 清除字族选择
+                .remove(Constants.PREF_CUSTOM_FONT_URI)   // 清除自定义字体 URI
                 .apply()
             return
         }
@@ -597,7 +617,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             parentFragment?.view?.findViewById(R.id.preview_content)
 
         val textSize: EditTextPreference? = findPreference(Constants.PREF_TEXT_SIZE)
-        val fontFamilies: SimpleMenuPreference? = findPreference(Constants.PREF_FONT_FAMILIES)
+        val fontFamilies: ListPreference? = findPreference(Constants.PREF_FONT_FAMILIES)
         val ttcIndex: EditTextPreference? = findPreference(Constants.PREF_TTC_INDEX)
         val customFont: Preference? = findPreference(Constants.PREF_CUSTOM_FONT)
 
