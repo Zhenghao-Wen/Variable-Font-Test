@@ -1,0 +1,36 @@
+name: Release Clean Universal Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Remove package name suffix (_n)
+        run: |
+          sed -i 's/applicationIdSuffix = "_n"/applicationIdSuffix = ""/' app/build.gradle.kts
+
+      - name: Remove app name suffix ( N)
+        run: |
+          sed -i 's/Variable Font Test N/Variable Font Test/g' app/src/main/res/values/strings.xml
+          sed -i 's/可变字体测试器 N/可变字体测试器/g' app/src/main/res/values-zh-rCN/strings.xml
+          sed -i 's/可變字型測試器 N/可變字型測試器/g' app/src/main/res/values-zh-rTW/values.xml
+
+      - name: Build Universal Release APK
+        run: ./gradlew assembleRelease --universal
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-universal
+          path: app/build/outputs/apk/release/app-release-universal.apk
