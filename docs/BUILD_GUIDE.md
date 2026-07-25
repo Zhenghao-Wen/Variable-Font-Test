@@ -134,7 +134,7 @@ Release 版本需要配置签名。
 
 **触发方式**: 手动触发 (`workflow_dispatch`)
 
-**构建产物**: arm64-v8a 架构的 Release APK
+**构建产物**: Universal Release APK（包含所有 ABI 架构）
 
 ### 配置 Secrets
 
@@ -178,7 +178,7 @@ base64 -i release-key.jks > keystore.base64
 1. 等待构建完成（绿色勾）
 2. 点击 workflow 运行记录
 3. 在页面底部找到 **Artifacts** 部分
-4. 点击 `app-release-arm64-v8a` 下载 APK
+4. 点击 `app-release-universal` 下载 APK
 
 **注意**: Artifacts 保留 90 天
 
@@ -186,27 +186,24 @@ base64 -i release-key.jks > keystore.base64
 
 ### 当前 CI 构建
 
-GitHub Actions 仅构建 **arm64-v8a** 架构：
+GitHub Actions 构建 **Universal APK**（包含所有 ABI 架构）：
 - ✅ arm64-v8a (ARM 64 位)
-- ❌ armeabi-v7a (ARM 32 位)
-- ❌ x86 (Intel 32 位)
-- ❌ x86_64 (Intel 64 位)
+- ✅ armeabi-v7a (ARM 32 位)
+- ✅ x86 (Intel 32 位)
+- ✅ x86_64 (Intel 64 位)
+
+由于应用采用纯 Kotlin + Compose 架构，不包含任何原生库 (JNI/NDK)，因此 Universal APK 体积很小。
 
 ### 本地构建所有架构
 
-如需构建所有架构的 APK：
+由于默认构建即为 Universal APK，无需额外配置：
 
 ```bash
-# 构建所有架构的 Release APK
+# 构建 Universal Release APK（包含所有架构）
 ./gradlew assembleRelease
-
-# 或构建特定架构
-./gradlew assembleRelease -PabiFilters=armeabi-v7a,arm64-v8a,x86,x86_64
 ```
 
-**输出位置**: `app/build/outputs/apk/release/`
-- `app-universal-release.apk` (包含所有架构)
-- 或按架构分离的 APK 文件
+**输出位置**: `app/build/outputs/apk/release/app-release.apk` (Universal APK，包含所有架构)
 
 ## 安装测试
 

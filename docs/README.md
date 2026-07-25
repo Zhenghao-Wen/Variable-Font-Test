@@ -6,8 +6,8 @@
 
 ### 基本信息
 
-- **应用名称**: Variable Font Test N
-- **包名**: `moe.echo.variablefonttest_n`
+- **应用名称**: Variable Font Test N（开发代号），正式名称为"可变字体测试器"
+- **包名**: `moe.echo.variablefonttest_n`（开发用），正式发布时移除 `_n` 后缀
 - **最低 SDK**: 21 (Android 5.0)
 - **目标 SDK**: 35 (Android 15)
 - **编译 SDK**: 35
@@ -192,7 +192,7 @@ Workflow 文件：`.github/workflows/build.yml`
 - `KEY_PASSWORD`: 密钥密码
 - `KEYSTORE_BASE64`: Base64 编码的密钥库文件
 
-**构建产物**: `app-release-arm64-v8a` artifact，包含签名的 APK 文件
+**构建产物**: `app-release-universal` artifact，包含签名的 Universal APK（所有 ABI 架构）
 
 ## 关键实现细节
 
@@ -240,7 +240,7 @@ XML 布局中的 Fragment 引用已更新为正确的包名：
 1. **可变字体支持**: Android 8.0 (API 26) 及以上版本完整支持可变字体
 2. **动态色彩**: Android 12 (API 31) 及以上版本支持 Material You 动态色彩
 3. **签名配置**: Release 构建需要配置签名密钥库，可通过 GitHub Secrets 或本地配置
-4. **ABI 过滤**: CI 仅构建 arm64-v8a 架构，其他架构需本地构建
+4. **ABI 过滤**: CI 构建 Universal APK（包含所有架构），无需本地构建其他架构
 
 ## 相关资源
 
