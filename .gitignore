@@ -1,47 +1,61 @@
+```
 # Compiled and build artifacts
 *.class
 *.o
 *.obj
-*.exe
-*.dll
 *.so
 *.a
+*.dll
+*.exe
 *.out
-*.pyc
-__pycache__/
-
-# Dependencies
-node_modules/
-venv/
-.venv/
-.env
-.env.local
-.env.*
-
-# Build directories
-dist/
 build/
 target/
-.gradle/
 
-# IDE/Editor files
-.vscode/
+# Dependencies
+.gradle/
+node_modules/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+venv/
+.venv/
+
+# Android specific
+*.apk
+*.aar
+*.dex
+local.properties
+.gradle/
 .idea/
+*.iml
+captures/
+.externalNativeBuild/
+.intermediates/
+.outputs/
+
+# Logs and temp files
+*.log
+*.tmp
 *.swp
 *.swo
-*.tmp
 
-# System files
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# System
 .DS_Store
 Thumbs.db
 
-# Logs and coverage
-*.log
+# Coverage
 coverage/
 htmlcov/
 .coverage
-.mypy_cache/
-.pytest_cache/
 
 # Compressed files
 *.zip
@@ -62,7 +76,4 @@ htmlcov/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+```

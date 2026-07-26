@@ -34,7 +34,7 @@
             android:id="@+id/main_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:name="moe.echo.variablefonttest_n.MainFragment"
+            android:name="moe.echo.variablefonttest.MainFragment"
             tools:layout="@layout/main_fragment" />
     </LinearLayout>
 

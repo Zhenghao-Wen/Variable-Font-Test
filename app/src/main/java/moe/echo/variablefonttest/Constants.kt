@@ -1,4 +1,4 @@
-package moe.echo.variablefonttest_n
+package moe.echo.variablefonttest
 
 object Constants {
     const val PREF_TEXT_SIZE = "textSize"

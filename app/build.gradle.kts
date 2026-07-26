@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "moe.echo.variablefonttest_n"
+    namespace = "moe.echo.variablefonttest"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "moe.echo.variablefonttest_n"
+        applicationId = "moe.echo.variablefonttest"
         minSdk = 21
         targetSdk = 35
         versionCode = 21

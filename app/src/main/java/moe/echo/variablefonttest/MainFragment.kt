@@ -1,4 +1,4 @@
-package moe.echo.variablefonttest_n
+package moe.echo.variablefonttest
 
 import androidx.fragment.app.Fragment
 
