@@ -1,10 +1,33 @@
 # Variable Font Test
-A Android app allow you input any words and adjust its wght that using system font.
 
+An Android app allow you input any words and adjust its OpenType features that using system font or any other one.
 
-<a href="https://play.google.com/store/apps/details?id=moe.echo.variablefonttest">
-  <img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" width="240px" />
-</a>
+Full Material 3 UI&UX Improvements are included in the latest v4 app.
+
+# Download
+
+[Github Release](https://github.com/Zhenghao-Wen/Variable-Font-Test/releases/tag/v4.0)
+
+> We welcome your help in publishing it to any open-source app store. 
+
+> Google Play is definitely not being considered.
 
 # Preview
-https://github.com/Zhenghao-Wen/Variable-Font-Test/assets/12007025/25bde05f-b851-45da-ac7e-15c4fd58228e
+
+https://github.com/user-attachments/assets/446df68d-e270-469c-9cdb-7d20620d50a5
+
+# Maintenance
+
+It won't be actively maintained due to my academic load.
+
+If you come up with some creative ideas or find a bug, please create your own fork and start a Pull Request.
+
+<details>
+
+<summary>More</summary>
+
+### Some Useful Words for Test (My Personal Suggestion)
+
+[Text4Test](TEXT4TEST.md)
+
+</details>
