@@ -6,7 +6,10 @@ Full Material 3 UI&UX Improvements are included in the latest v4 app.
 
 # Download
 
-[Github Release](https://github.com/Zhenghao-Wen/Variable-Font-Test/releases/tag/v4.0)
+<p align="left">
+  <a href="https://github.com/Zhenghao-Wen/Variable-Font-Test/releases/latest">
+    <img src="doc/pics/badge-github.png" alt="Get it on GitHub" height="60" /></a>
+</p>
 
 > We welcome your help in publishing it to any open-source app store. 
 
