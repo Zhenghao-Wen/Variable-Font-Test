@@ -5,10 +5,10 @@
     android:viewportWidth="192"
     android:viewportHeight="192">
     <group
-        android:scaleX="0.62"
-        android:scaleY="0.62"
-        android:translateX="36.5"
-        android:translateY="35.2">
+        android:scaleX="0.50"
+        android:scaleY="0.50"
+        android:translateX="48"
+        android:translateY="47">
         <path
             android:pathData="M59,142 L23,54 M59,142 L95,54 M123,142 V60 A6,6 0 0,1 129,54 H169 M123,98 H161"
             android:strokeColor="@color/md3_primary"
