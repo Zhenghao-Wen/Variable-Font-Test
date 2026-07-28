@@ -38,11 +38,10 @@ class SliderPreference @JvmOverloads constructor(
      * Reference: material-components-android LabelBehavior.java
      */
     private companion object {
-        /** Label floats above the thumb during drag. */
-        const val LABEL_FLOATING = 0
-        /** Label is shown within slider bounds during drag. */
-        const val LABEL_WITHIN_BOUNDS = 1
-        /** No label is shown. */
+        /**
+         * 不显示拖动标签（Label formatter）。
+         * LabelBehavior.GONE = 2；该注解为 @Retention(SOURCE)，编译后不在 AAR 中，无法导入，故用本地常量。
+         */
         const val LABEL_GONE = 2
     }
 
@@ -73,8 +72,11 @@ class SliderPreference @JvmOverloads constructor(
         s.valueTo = valueTo
         s.stepSize = stepSize
 
-        // ── 使用本地命名常量（LabelBehavior 不可导入）──
-        s.labelBehavior = if (showLabel) LABEL_FLOATING else LABEL_GONE
+        // ── 恒定不显示拖动浮动气泡 ──
+        s.labelBehavior = LABEL_GONE
+        // ── 隐藏轨道步进圆点（tick marks）：步进值小则圆点密布，隐藏后更整洁 ──
+        // 此处统一生效，预设滑块与自定义参数滑块均经 SliderPreference 渲染，一并覆盖。
+        s.setTickVisible(false)
 
         // ── 设置当前值（无 listener，安全）──
         s.value = sliderValue.coerceIn(valueFrom, valueTo)

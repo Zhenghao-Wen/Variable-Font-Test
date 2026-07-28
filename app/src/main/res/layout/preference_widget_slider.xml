@@ -74,14 +74,15 @@
                 android:id="@+id/preference_slider"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1" />
+                android:layout_weight="1"
+                app:tickVisible="false" />
 
             <TextView
                 android:id="@+id/slider_value"
-                android:layout_width="48dp"
+                android:layout_width="40dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:gravity="end"
+                android:gravity="start"
                 android:maxLines="1"
                 android:fontFeatureSettings="tnum"
                 android:textAppearance="?android:attr/textAppearanceListItemSecondary"

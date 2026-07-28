@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.util.AttributeSet
+import android.view.Gravity
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.preference.PreferenceViewHolder
@@ -42,15 +43,19 @@ class SeekBarPreference @JvmOverloads constructor(
         seekBar.progressTintList = primaryColorStateList
         seekBar.thumbTintList = primaryColorStateList
 
-        // ── 修复拖动抖动：固定数值 TextView 宽度 ──
-        // 库内置布局的 seekbar_value 为 wrap_content，非等宽数字字体下
-        // 数值变化（如 400→1000）会改变其宽度，导致 SeekBar 可用宽度
-        // 随之变化、拇指像素位置偏移，产生拖动抖动。
-        // 固定为 48dp（可容纳最大字重 "1000"），宽度恒定后抖动消除。
+        // ── 修复拖动抖动 + 等宽数字（与 MD3 slider_value 对齐）──
+        // 库内置 seekbar_value 为 wrap_content：非等宽数字字体下数值变化（400→1000）
+        // 会改变其宽度导致 SeekBar 可用宽度突变、拇指抖动。
+        // 固定 48dp（含 8dp 左间隔 + 40dp 文本区），左对齐使首位数字贴近滑块，tnum 等宽数字。
         (view.findViewById(androidx.preference.R.id.seekbar_value) as? TextView)?.let { valueView ->
-            val fixedWidthPx = (48 * valueView.resources.displayMetrics.density).toInt()
-            valueView.layoutParams = valueView.layoutParams.apply { width = fixedWidthPx }
+            val density = valueView.resources.displayMetrics.density
+            valueView.layoutParams = valueView.layoutParams.apply {
+                width = (48 * density).toInt()
+            }
+            valueView.setPaddingRelative((8 * density).toInt(), valueView.paddingTop, 0, valueView.paddingBottom)
+            valueView.gravity = Gravity.START or Gravity.CENTER_VERTICAL
             valueView.maxLines = 1
+            valueView.fontFeatureSettings = "tnum"
         }
     }
 }
