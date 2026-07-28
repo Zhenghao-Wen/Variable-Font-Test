@@ -5,6 +5,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.util.AttributeSet
 import android.widget.SeekBar
+import android.widget.TextView
 import androidx.preference.PreferenceViewHolder
 import androidx.preference.SeekBarPreference
 import com.google.android.material.color.MaterialColors
@@ -40,5 +41,16 @@ class SeekBarPreference @JvmOverloads constructor(
         val primaryColorStateList = ColorStateList.valueOf(primaryColor)
         seekBar.progressTintList = primaryColorStateList
         seekBar.thumbTintList = primaryColorStateList
+
+        // ── 修复拖动抖动：固定数值 TextView 宽度 ──
+        // 库内置布局的 seekbar_value 为 wrap_content，非等宽数字字体下
+        // 数值变化（如 400→1000）会改变其宽度，导致 SeekBar 可用宽度
+        // 随之变化、拇指像素位置偏移，产生拖动抖动。
+        // 固定为 48dp（可容纳最大字重 "1000"），宽度恒定后抖动消除。
+        (view.findViewById(androidx.preference.R.id.seekbar_value) as? TextView)?.let { valueView ->
+            val fixedWidthPx = (48 * valueView.resources.displayMetrics.density).toInt()
+            valueView.layoutParams = valueView.layoutParams.apply { width = fixedWidthPx }
+            valueView.maxLines = 1
+        }
     }
 }
