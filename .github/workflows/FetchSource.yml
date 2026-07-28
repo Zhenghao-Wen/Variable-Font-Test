@@ -1,4 +1,4 @@
-name: Verify Rename & Key Code State
+name: Build Debug Measurement APK (com.vftest)
 
 on:
   workflow_dispatch:
@@ -7,191 +7,124 @@ on:
       - QwenMirror
 
 jobs:
-  verify:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout dev
+        uses: actions/checkout@v4
         with:
           ref: dev
-          fetch-depth: 10
+          fetch-depth: 1
 
-      - name: Build verification report
-        shell: bash
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # ── 仅改 applicationId 实现共存；namespace 保持不变以保留 Fragment/类引用 ──
+      - name: Repackage to com.vftest (applicationId only)
         run: |
-          set -euo pipefail
-          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
+          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
+          echo "=== applicationId / namespace after change ==="
+          grep -nE "applicationId|namespace" app/build.gradle.kts
 
-          R="rename_verify.txt"
-          {
-            echo "# Rename & Key Code Verification"
-            echo "# Branch: dev"
-            echo "# Commit: $(git rev-parse HEAD)"
-            echo "# Date: $(date -u)"
-            echo ""
+      # ── 修改应用标签，便于在设备上与正式版区分 ──
+      - name: Set distinct debug label
+        run: |
+          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
+          grep -n "android:label" app/src/main/AndroidManifest.xml
 
-            # ═══════════════════════════════════════════════════════
-            #  A. 近期 Git 变更（重点：检测重命名）
-            # ═══════════════════════════════════════════════════════
-            echo "## [A1] 最近 8 条提交"
-            echo '```'
-            git log --oneline -8
-            echo '```'
-            echo ""
+      # ── 注入 MEASURE 测量埋点（SliderPreference + SeekBarPreference）──
+      - name: Inject MEASURE instrumentation
+        run: |
+          python3 << 'PYEOF'
+          import io
 
-            echo "## [A2] 最近 5 次提交的文件变更（含重命名检测 -M）"
-            echo '```'
-            git log --name-status -M --find-renames -5 --pretty=format:"=== %h %s ===" | head -120
-            echo '```'
-            echo ""
+          def inject(path, anchor, block):
+              with io.open(path, "r", encoding="utf-8") as f:
+                  lines = f.readlines()
+              idx = None
+              for i, line in enumerate(lines):
+                  if anchor in line:
+                      idx = i
+                      break
+              if idx is None:
+                  raise SystemExit("ERROR: anchor '%s' not found in %s" % (anchor, path))
+              lines.insert(idx + 1, block)
+              with io.open(path, "w", encoding="utf-8") as f:
+                  f.writelines(lines)
+              print("OK: injected after line %d in %s" % (idx + 1, path))
 
-            echo "## [A3] 当前工作区是否干净"
-            echo '```'
-            git status --short || echo "(clean)"
-            echo '```'
-            echo ""
+          slider_block = '''        // == MEASURE 埋点（CI 自动注入，仅用于本次测量构建）==
+          run {
+              val density = s.resources.displayMetrics.density
+              android.util.Log.d("MEASURE", "[MD3] Slider paddingLeft=${"%.2f".format(s.paddingLeft / density)}dp, paddingRight=${"%.2f".format(s.paddingRight / density)}dp")
+              vt?.let { tv ->
+                  tv.fontFeatureSettings = "tnum"
+                  android.util.Log.d("MEASURE", "[MD3] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, single '0'(tnum)width=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
+                  tv.post {
+                      android.util.Log.d("MEASURE", "[MD3] slider_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp, effectiveTextWidth=${"%.2f".format((tv.width - tv.paddingStart - tv.paddingEnd) / density)}dp")
+                  }
+              }
+          }
+          // == MEASURE end ==
+          '''
 
-            # ═══════════════════════════════════════════════════════
-            #  B. 完整文件树（核对重命名后的实际文件名）
-            # ═══════════════════════════════════════════════════════
-            echo "## [B1] Kotlin/Java 源文件树"
-            echo '```'
-            find app/src/main/java -type f | sort
-            echo '```'
-            echo ""
+          seekbar_block = '''        // == MEASURE 埋点（CI 自动注入，仅用于本次测量构建）==
+          run {
+              val density = seekBar.resources.displayMetrics.density
+              android.util.Log.d("MEASURE", "[MD2] SeekBar paddingLeft=${"%.2f".format(seekBar.paddingLeft / density)}dp, paddingRight=${"%.2f".format(seekBar.paddingRight / density)}dp")
+              (view.findViewById(androidx.preference.R.id.seekbar_value) as? android.widget.TextView)?.let { tv ->
+                  tv.fontFeatureSettings = "tnum"
+                  android.util.Log.d("MEASURE", "[MD2] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, single '0'(tnum)width=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
+                  tv.post {
+                      android.util.Log.d("MEASURE", "[MD2] seekbar_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp, effectiveTextWidth=${"%.2f".format((tv.width - tv.paddingStart - tv.paddingEnd) / density)}dp")
+                  }
+              }
+          }
+          // == MEASURE end ==
+          '''
 
-            echo "## [B2] res 资源文件树"
-            echo '```'
-            find app/src/main/res -type f | sort
-            echo '```'
-            echo ""
+          inject(
+              "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt",
+              "findViewById(R.id.slider_value)",
+              slider_block,
+          )
+          inject(
+              "app/src/main/java/moe/echo/variablefonttest_n/SeekBarPreference.kt",
+              "thumbTintList = primaryColorStateList",
+              seekbar_block,
+          )
+          PYEOF
 
-            # ═══════════════════════════════════════════════════════
-            #  C. 关键 Kotlin 文件内容
-            # ═══════════════════════════════════════════════════════
-            for f in $(find app/src/main/java -name "*.kt" | sort); do
-              echo "## [C] $f"
-              echo '```kotlin'
-              cat "$f" 2>/dev/null || echo "[ERROR reading $f]"
-              echo '```'
-              echo ""
-            done
+      - name: Verify injection
+        run: |
+          echo "=== SliderPreference MEASURE lines ==="
+          grep -c "MEASURE" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+          echo "=== SeekBarPreference MEASURE lines ==="
+          grep -c "MEASURE" app/src/main/java/moe/echo/variablefonttest_n/SeekBarPreference.kt
+          echo "=== injected region (Slider) ==="
+          grep -n -A2 "MEASURE 埋点" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt | head -6
 
-            # ═══════════════════════════════════════════════════════
-            #  D. 关键资源文件
-            # ═══════════════════════════════════════════════════════
-            echo "## [D1] build.gradle.kts (app)"
-            echo '```kotlin'
-            cat app/build.gradle.kts 2>/dev/null || echo "[FILE NOT FOUND]"
-            echo '```'
-            echo ""
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew app:assembleDebug --no-daemon
 
-            echo "## [D2] libs.versions.toml"
-            echo '```toml'
-            cat gradle/libs.versions.toml 2>/dev/null || echo "[FILE NOT FOUND]"
-            echo '```'
-            echo ""
+      - name: Locate APK
+        run: |
+          ls -la app/build/outputs/apk/debug/
 
-            echo "## [D3] options.xml"
-            echo '```xml'
-            cat app/src/main/res/xml/options.xml 2>/dev/null || echo "[FILE NOT FOUND]"
-            echo '```'
-            echo ""
-
-            echo "## [D4] 所有 layout 文件"
-            for f in $(find app/src/main/res/layout -name "*.xml" | sort); do
-              echo "### $f"
-              echo '```xml'
-              cat "$f" 2>/dev/null || echo "[ERROR reading $f]"
-              echo '```'
-              echo ""
-            done
-
-            echo "## [D5] 所有颜色资源文件"
-            for f in $(find app/src/main/res -name "colors.xml" -o -name "ic_launcher_background.xml" | sort); do
-              echo "### $f"
-              echo '```xml'
-              cat "$f" 2>/dev/null || echo "[ERROR reading $f]"
-              echo '```'
-              echo ""
-            done
-
-            echo "## [D6] themes.xml (values + values-night)"
-            for f in app/src/main/res/values/themes.xml app/src/main/res/values-night/themes.xml; do
-              if [ -f "$f" ]; then
-                echo "### $f"
-                echo '```xml'
-                cat "$f"
-                echo '```'
-                echo ""
-              fi
-            done
-
-            echo "## [D7] ic_launcher_foreground.xml"
-            echo '```xml'
-            cat app/src/main/res/drawable/ic_launcher_foreground.xml 2>/dev/null || echo "(not found)"
-            echo '```'
-            echo ""
-
-            echo "## [D8] strings.xml (values + values-zh-rCN)"
-            for f in app/src/main/res/values/strings.xml app/src/main/res/values-zh-rCN/strings.xml; do
-              if [ -f "$f" ]; then
-                echo "### $f"
-                echo '```xml'
-                cat "$f"
-                echo '```'
-                echo ""
-              fi
-            done
-
-            # ═══════════════════════════════════════════════════════
-            #  E. 交叉引用检查（检测重命名导致的悬空引用）
-            # ═══════════════════════════════════════════════════════
-            echo "## [E1] Kotlin 中引用的 R.layout.* 是否都存在"
-            echo '```'
-            # 使用临时文件避免管道中 grep 失败导致退出
-            grep -rhoE "R\.layout\.[a-zA-Z0-9_]+" app/src/main/java 2>/dev/null | sort -u | while read ref; do
-              name="${ref#R.layout.}"
-              if [ -f "app/src/main/res/layout/$name.xml" ]; then
-                echo "OK   $ref"
-              else
-                echo "MISS $ref  ← 布局文件不存在！"
-              fi
-            done || echo "(no R.layout references found)"
-            echo '```'
-            echo ""
-
-            echo "## [E2] XML 中引用的自定义类全限定名是否在源码中存在"
-            echo '```'
-            grep -rhoE "moe\.echo\.variablefonttest_n\.[A-Za-z0-9_]+" app/src/main/res app/src/main/AndroidManifest.xml 2>/dev/null | sort -u | while read cls; do
-              simple="${cls##*.}"
-              if grep -rlq "class $simple" app/src/main/java 2>/dev/null; then
-                echo "OK   $cls"
-              else
-                echo "MISS $cls  ← 源码中无此类！"
-              fi
-            done || echo "(no custom class references found)"
-            echo '```'
-            echo ""
-
-            echo "## [E3] AndroidManifest.xml"
-            echo '```xml'
-            cat app/src/main/AndroidManifest.xml 2>/dev/null || echo "[FILE NOT FOUND]"
-            echo '```'
-          } > "$R"
-
-          # 大小检查
-          SIZE=$(wc -c < "$R")
-          echo "Report size: $SIZE bytes"
-          if [ "$SIZE" -gt 51200 ]; then
-            echo "WARNING: exceeds 50KB, truncating large sections may be needed"
-          fi
-
-      - name: Upload
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: rename-verify
-          path: rename_verify.txt
-          retention-days: 7
+          name: vftest-debug-measure
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
