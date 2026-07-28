@@ -95,6 +95,7 @@ Special thanks to:
 - [Lawnchair Team](https://github.com/LawnchairLauncher) for the Lawnicons icon set
 - [RikkaW](https://github.com/RikkaW) for SimpleMenu Preference
 - All open source contributors
+- and [Qwen](https://qwen.ai) for the high-performance LLM
 
 ---
 
