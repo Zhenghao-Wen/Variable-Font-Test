@@ -16,7 +16,7 @@
     
     <color name="preview_content_background">@color/white</color>
 
-    <!-- MD3 Baseline 亮色 -->
-    <color name="md3_primary">#6750A4</color>
-    <color name="md3_primary_container">#EADDFF</color>
+    <!-- MD3 Baseline 亮色（Secondary 系） -->
+    <color name="md3_primary">#625B71</color>
+    <color name="md3_primary_container">#E8DEF8</color>
 </resources>

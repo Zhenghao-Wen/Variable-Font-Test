@@ -2,7 +2,7 @@
 <resources>
     <color name="preview_content_background">#303030</color>
 
-    <!-- MD3 Baseline 暗色 -->
-    <color name="md3_primary">#D0BCFF</color>
-    <color name="md3_primary_container">#4F378B</color>
+    <!-- MD3 Baseline 暗色（Secondary 系） -->
+    <color name="md3_primary">#CBC2DB</color>
+    <color name="md3_primary_container">#4A4458</color>
 </resources>
