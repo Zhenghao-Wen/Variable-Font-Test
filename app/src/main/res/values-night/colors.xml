@@ -2,7 +2,8 @@
 <resources>
     <color name="preview_content_background">#303030</color>
 
-    <!-- MD3 Baseline 暗色（Secondary 系） -->
+    <!-- Android 11 及以下深色前景色 -->
     <color name="md3_primary">#CBC2DB</color>
-    <color name="md3_primary_container">#4A4458</color>
+    <!-- Android 11 及以下深色背景色 -->
+    <color name="ic_launcher_background">#332D41</color>
 </resources>
