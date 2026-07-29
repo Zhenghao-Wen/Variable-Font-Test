@@ -1,4 +1,4 @@
-name: Verify All Color References Resolve
+name: Build Debug Measure APK v2 (thumbRadius, fixed)
 
 on:
   workflow_dispatch:
@@ -7,41 +7,136 @@ on:
       - QwenMirror
 
 jobs:
-  verify:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout dev
+        uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 1
 
-      - name: Check every @color reference is defined
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Repackage to com.vftest (applicationId only)
         run: |
-          set -euo pipefail
-          cd app/src/main/res
+          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
+          grep -nE "applicationId|namespace" app/build.gradle.kts
 
-          # 所有已定义的颜色资源名（<color name="X">，含各限定符目录）
-          defs=$(grep -rhoE '<color name="[a-zA-Z0-9_]+"' . \
-                 | sed -E 's/<color name="([^"]+)"/\1/' | sort -u)
+      - name: Set distinct debug label
+        run: |
+          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
+          grep -n "android:label" app/src/main/AndroidManifest.xml
 
-          # 所有被引用的 @color/X（排除系统 @android:color/...）
-          refs=$(grep -rhoE '@color/[a-zA-Z0-9_]+' . \
-                 | sed -E 's#@color/##' | sort -u)
+      - name: Inject MEASURE instrumentation (reflection via superclass chain)
+        run: |
+          python3 << 'PYEOF'
+          import io
 
-          echo "=== 被引用但未定义的颜色（应为空）==="
-          missing=$(comm -23 <(echo "$refs") <(echo "$defs") || true)
-          if [ -n "$missing" ]; then
-            echo "$missing"
-            echo "RESULT: FAIL —— 以上颜色缺定义，需补回 values/colors.xml"
-            exit 1
-          else
-            echo "（无）"
-            echo "RESULT: PASS —— 所有 @color 引用均有定义"
-          fi
+          def inject(path, anchor, block):
+              with io.open(path, "r", encoding="utf-8") as f:
+                  lines = f.readlines()
+              idx = None
+              for i, line in enumerate(lines):
+                  if anchor in line:
+                      idx = i
+                      break
+              if idx is None:
+                  raise SystemExit("ERROR: anchor '%s' not found in %s" % (anchor, path))
+              lines.insert(idx + 1, block)
+              with io.open(path, "w", encoding="utf-8") as f:
+                  f.writelines(lines)
+              print("OK: injected after line %d in %s" % (idx + 1, path))
 
-      - name: Build debug
+          slider_block = '''        // == MEASURE v2 (CI injected, reflection only) ==
+          run {
+              val density = s.resources.displayMetrics.density
+              vt?.let { tv ->
+                  tv.fontFeatureSettings = "tnum"
+                  android.util.Log.d("MEASURE", "[MD3] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, '0'=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
+                  tv.post {
+                      android.util.Log.d("MEASURE", "[MD3] slider_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp")
+                  }
+              }
+              // BaseSlider 为 package-private，不可直接引用 ::class；改从 Slider 沿继承链向上遍历
+              var cls: Class<*>? = s.javaClass
+              while (cls != null && cls.name != "java.lang.Object") {
+                  try {
+                      android.util.Log.d("MEASURE", "[MD3] " + cls.simpleName + " fields=" + cls.declaredFields.joinToString(",") { it.name })
+                  } catch (e: Exception) {
+                      android.util.Log.d("MEASURE", "[MD3] " + cls.simpleName + " fields reflect fail: " + e.message)
+                  }
+                  cls = cls.superclass
+              }
+              for (fname in listOf("thumbRadius", "trackSidePadding", "labelPadding", "trackHeight", "widgetLabelPadding")) {
+                  var c: Class<*>? = s.javaClass
+                  var found = false
+                  while (c != null && !found) {
+                      try {
+                          val ff = c.getDeclaredField(fname)
+                          ff.isAccessible = true
+                          android.util.Log.d("MEASURE", "[MD3] " + fname + "=" + ff.getInt(s) + "px=" + "%.2f".format(ff.getInt(s) / density) + "dp (in " + c.simpleName + ")")
+                          found = true
+                      } catch (e: Exception) {
+                          c = c.superclass
+                      }
+                  }
+              }
+          }
+          // == MEASURE v2 end ==
+          '''
+
+          seekbar_block = '''        // == MEASURE v2 (CI injected) ==
+          run {
+              val density = seekBar.resources.displayMetrics.density
+              (view.findViewById(androidx.preference.R.id.seekbar_value) as? android.widget.TextView)?.let { tv ->
+                  tv.fontFeatureSettings = "tnum"
+                  android.util.Log.d("MEASURE", "[MD2] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, '0'=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
+                  tv.post {
+                      android.util.Log.d("MEASURE", "[MD2] seekbar_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp")
+                  }
+              }
+          }
+          // == MEASURE v2 end ==
+          '''
+
+          inject(
+              "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt",
+              "findViewById(R.id.slider_value)",
+              slider_block,
+          )
+          inject(
+              "app/src/main/java/moe/echo/variablefonttest_n/SeekBarPreference.kt",
+              "thumbTintList = primaryColorStateList",
+              seekbar_block,
+          )
+          PYEOF
+
+      - name: Verify injection
+        run: |
+          echo "=== SliderPreference MEASURE count ==="
+          grep -c "MEASURE" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+          echo "=== no direct BaseSlider::class reference (should be 0) ==="
+          grep -c "BaseSlider::class" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0 (good)"
+
+      - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew app:assembleDebug
+          ./gradlew app:assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vftest-debug-measure-v2
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
