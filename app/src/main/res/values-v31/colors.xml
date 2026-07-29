@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="md3_secondary">@android:color/system_accent2_700</color>
-    <color name="md3_primary_container">@android:color/system_accent2_100</color>
+    <color name="md3_secondary_container">@android:color/system_accent2_100</color>
 </resources>
