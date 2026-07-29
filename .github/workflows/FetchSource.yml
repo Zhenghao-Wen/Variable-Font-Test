@@ -1,10 +1,7 @@
-name: Build Debug Measurement APK (com.vftest)
+name: Build Debug Measure APK v2 (thumbRadius)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - QwenMirror
 
 jobs:
   build:
@@ -28,21 +25,17 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # ── 仅改 applicationId 实现共存；namespace 保持不变以保留 Fragment/类引用 ──
       - name: Repackage to com.vftest (applicationId only)
         run: |
           sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
-          echo "=== applicationId / namespace after change ==="
           grep -nE "applicationId|namespace" app/build.gradle.kts
 
-      # ── 修改应用标签，便于在设备上与正式版区分 ──
       - name: Set distinct debug label
         run: |
           sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
           grep -n "android:label" app/src/main/AndroidManifest.xml
 
-      # ── 注入 MEASURE 测量埋点（SliderPreference + SeekBarPreference）──
-      - name: Inject MEASURE instrumentation
+      - name: Inject MEASURE instrumentation (thumbRadius + widths)
         run: |
           python3 << 'PYEOF'
           import io
@@ -62,34 +55,48 @@ jobs:
                   f.writelines(lines)
               print("OK: injected after line %d in %s" % (idx + 1, path))
 
-          slider_block = '''        // == MEASURE 埋点（CI 自动注入，仅用于本次测量构建）==
+          slider_block = '''        // == MEASURE v2 (CI injected) ==
           run {
               val density = s.resources.displayMetrics.density
-              android.util.Log.d("MEASURE", "[MD3] Slider paddingLeft=${"%.2f".format(s.paddingLeft / density)}dp, paddingRight=${"%.2f".format(s.paddingRight / density)}dp")
               vt?.let { tv ->
                   tv.fontFeatureSettings = "tnum"
-                  android.util.Log.d("MEASURE", "[MD3] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, single '0'(tnum)width=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
+                  android.util.Log.d("MEASURE", "[MD3] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, '0'=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
                   tv.post {
-                      android.util.Log.d("MEASURE", "[MD3] slider_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp, effectiveTextWidth=${"%.2f".format((tv.width - tv.paddingStart - tv.paddingEnd) / density)}dp")
+                      android.util.Log.d("MEASURE", "[MD3] slider_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp")
                   }
               }
+              try {
+                  val baseCls = com.google.android.material.slider.BaseSlider::class.java
+                  android.util.Log.d("MEASURE", "[MD3] BaseSlider fields=" + baseCls.declaredFields.joinToString(",") { it.name })
+                  val f = baseCls.getDeclaredField("thumbRadius")
+                  f.isAccessible = true
+                  android.util.Log.d("MEASURE", "[MD3] thumbRadius=${"%.2f".format(f.getInt(s) / density)}dp (${f.getInt(s)}px)")
+              } catch (e: Exception) {
+                  android.util.Log.d("MEASURE", "[MD3] thumbRadius reflect fail: " + e.message)
+              }
+              for (fname in listOf("trackSidePadding", "labelPadding", "trackHeight", "separatorWidth")) {
+                  try {
+                      val ff = com.google.android.material.slider.BaseSlider::class.java.getDeclaredField(fname)
+                      ff.isAccessible = true
+                      android.util.Log.d("MEASURE", "[MD3] $fname=${ff.getInt(s)}px=${"%.2f".format(ff.getInt(s) / density)}dp")
+                  } catch (e: Exception) { }
+              }
           }
-          // == MEASURE end ==
+          // == MEASURE v2 end ==
           '''
 
-          seekbar_block = '''        // == MEASURE 埋点（CI 自动注入，仅用于本次测量构建）==
+          seekbar_block = '''        // == MEASURE v2 (CI injected) ==
           run {
               val density = seekBar.resources.displayMetrics.density
-              android.util.Log.d("MEASURE", "[MD2] SeekBar paddingLeft=${"%.2f".format(seekBar.paddingLeft / density)}dp, paddingRight=${"%.2f".format(seekBar.paddingRight / density)}dp")
               (view.findViewById(androidx.preference.R.id.seekbar_value) as? android.widget.TextView)?.let { tv ->
                   tv.fontFeatureSettings = "tnum"
-                  android.util.Log.d("MEASURE", "[MD2] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, single '0'(tnum)width=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
+                  android.util.Log.d("MEASURE", "[MD2] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, '0'=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
                   tv.post {
-                      android.util.Log.d("MEASURE", "[MD2] seekbar_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp, effectiveTextWidth=${"%.2f".format((tv.width - tv.paddingStart - tv.paddingEnd) / density)}dp")
+                      android.util.Log.d("MEASURE", "[MD2] seekbar_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp")
                   }
               }
           }
-          // == MEASURE end ==
+          // == MEASURE v2 end ==
           '''
 
           inject(
@@ -106,12 +113,12 @@ jobs:
 
       - name: Verify injection
         run: |
-          echo "=== SliderPreference MEASURE lines ==="
+          echo "=== SliderPreference MEASURE count ==="
           grep -c "MEASURE" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
-          echo "=== SeekBarPreference MEASURE lines ==="
+          echo "=== SeekBarPreference MEASURE count ==="
           grep -c "MEASURE" app/src/main/java/moe/echo/variablefonttest_n/SeekBarPreference.kt
-          echo "=== injected region (Slider) ==="
-          grep -n -A2 "MEASURE 埋点" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt | head -6
+          echo "=== thumbRadius probe present ==="
+          grep -c "thumbRadius" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
 
       - name: Build debug APK
         run: |
@@ -125,6 +132,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: vftest-debug-measure
+          name: vftest-debug-measure-v2
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
