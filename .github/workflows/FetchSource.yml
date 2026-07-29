@@ -2,6 +2,9 @@ name: Build Debug Measure APK v2 (thumbRadius)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - QwenMirror
 
 jobs:
   build:
