@@ -2,5 +2,5 @@
 <resources>
     <color name="ic_launcher_background">#E8DEF8</color>
     <!-- Android 11 及以下浅色前景色 -->
-    <color name="md3_primary">#4A4458</color>
+    <color name="md3_secondary">#4A4458</color>
 </resources>

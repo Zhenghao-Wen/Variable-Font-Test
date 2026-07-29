@@ -3,7 +3,7 @@
     <color name="preview_content_background">#303030</color>
 
     <!-- Android 11 及以下深色前景色 -->
-    <color name="md3_primary">#CBC2DB</color>
+    <color name="md3_secondary">#CBC2DB</color>
     <!-- Android 11 及以下深色背景色 -->
     <color name="ic_launcher_background">#332D41</color>
 </resources>

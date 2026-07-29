@@ -3,5 +3,5 @@
     <!-- Android 12+ 浅色背景：system_accent2_100 -->
     <color name="ic_launcher_background">@android:color/system_accent2_100</color>
     <!-- Android 12+ 浅色前景：system_accent2_700 -->
-    <color name="md3_primary">@android:color/system_accent2_700</color>
+    <color name="md3_secondary">@android:color/system_accent2_700</color>
 </resources>

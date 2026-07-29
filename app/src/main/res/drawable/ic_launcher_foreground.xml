@@ -11,7 +11,7 @@
         android:translateY="48">
         <path
             android:pathData="M59,142 L23,54 M59,142 L95,54 M123,142 V60 A6,6 0 0,1 129,54 H169 M123,98 H161"
-            android:strokeColor="@color/md3_primary"
+            android:strokeColor="@color/md3_secondary"
             android:strokeWidth="14"
             android:strokeLineCap="round" />
     </group>
