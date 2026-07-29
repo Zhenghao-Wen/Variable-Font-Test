@@ -1,4 +1,4 @@
-name: Verify Icon Colors Final State
+name: Verify All Color References Resolve
 
 on:
   workflow_dispatch:
@@ -17,47 +17,31 @@ jobs:
           ref: dev
           fetch-depth: 1
 
-      - name: Verify
+      - name: Check every @color reference is defined
         run: |
           set -euo pipefail
-          cd app/src/main
-          PASS=0; FAIL=0
-          chk() { if eval "$2"; then echo "PASS: $1"; PASS=$((PASS+1)); else echo "FAIL: $1"; FAIL=$((FAIL+1)); fi; }
+          cd app/src/main/res
 
-          echo "=== 1. 旧命名/旧文件应已清除 ==="
-          chk "无 md3_primary 残留"            '! grep -rq "md3_primary" res/'
-          chk "无 ic_launcher_background 引用"  '! grep -rq "ic_launcher_background" res/'
-          chk "values/ic_launcher_background.xml 已删"        '[ ! -f res/values/ic_launcher_background.xml ]'
-          chk "values-night/ic_launcher_background.xml 已删"  '[ ! -f res/values-night/ic_launcher_background.xml ]'
-          chk "values-v31/ic_launcher_background.xml 已删"    '[ ! -f res/values-v31/ic_launcher_background.xml ]'
-          chk "values-night-v31/ic_launcher_background.xml 已删" '[ ! -f res/values-night-v31/ic_launcher_background.xml ]'
+          # 所有已定义的颜色资源名（<color name="X">，含各限定符目录）
+          defs=$(grep -rhoE '<color name="[a-zA-Z0-9_]+"' . \
+                 | sed -E 's/<color name="([^"]+)"/\1/' | sort -u)
 
-          echo "=== 2. preview_content_background 默认定义存在（修复 lint）==="
-          chk "values/colors.xml 含 preview_content_background" 'grep -q "preview_content_background" res/values/colors.xml'
+          # 所有被引用的 @color/X（排除系统 @android:color/...）
+          refs=$(grep -rhoE '@color/[a-zA-Z0-9_]+' . \
+                 | sed -E 's#@color/##' | sort -u)
 
-          echo "=== 3. 各限定符 md3_secondary(_container) 值正确 ==="
-          chk "values 浅色前景 #4A4458"        'grep -qi "name=\"md3_secondary\">#4A4458" res/values/colors.xml'
-          chk "values 浅色背景 #E8DEF8"        'grep -qi "name=\"md3_secondary_container\">#E8DEF8" res/values/colors.xml'
-          chk "values-night 深色前景 #CBC2DB"  'grep -qi "name=\"md3_secondary\">#CBC2DB" res/values-night/colors.xml'
-          chk "values-night 深色背景 #332D41"  'grep -qi "name=\"md3_secondary_container\">#332D41" res/values-night/colors.xml'
-          chk "values-v31 浅色动态 accent2_700" 'grep -q "name=\"md3_secondary\">@android:color/system_accent2_700" res/values-v31/colors.xml'
-          chk "values-v31 浅色背景 accent2_100" 'grep -q "name=\"md3_secondary_container\">@android:color/system_accent2_100" res/values-v31/colors.xml'
-          chk "values-night-v31 深色动态 accent2_200" 'grep -q "name=\"md3_secondary\">@android:color/system_accent2_200" res/values-night-v31/colors.xml'
-          chk "values-night-v31 深色背景 accent2_800" 'grep -q "name=\"md3_secondary_container\">@android:color/system_accent2_800" res/values-night-v31/colors.xml'
+          echo "=== 被引用但未定义的颜色（应为空）==="
+          missing=$(comm -23 <(echo "$refs") <(echo "$defs") || true)
+          if [ -n "$missing" ]; then
+            echo "$missing"
+            echo "RESULT: FAIL —— 以上颜色缺定义，需补回 values/colors.xml"
+            exit 1
+          else
+            echo "（无）"
+            echo "RESULT: PASS —— 所有 @color 引用均有定义"
+          fi
 
-          echo "=== 4. 每个目录无重复定义（同名资源仅一处）==="
-          for d in values values-night values-v31 values-night-v31; do
-            for name in md3_secondary md3_secondary_container; do
-              cnt=$(grep -rl "name=\"$name\"" res/$d/ 2>/dev/null | wc -l)
-              chk "$d/$name 仅定义于 1 个文件" "[ \"$cnt\" -le 1 ]"
-            done
-          done
-
-          echo "=== 5. 矢量图与自适应图标引用正确 ==="
-          chk "前景引用 md3_secondary"            'grep -q "strokeColor=\"@color/md3_secondary\"" res/drawable/ic_launcher_foreground.xml'
-          chk "ic_launcher 背景引用 md3_secondary_container" 'grep -q "drawable=\"@color/md3_secondary_container\"" res/mipmap-anydpi-v26/ic_launcher.xml'
-          chk "ic_launcher_round 背景引用 md3_secondary_container" 'grep -q "drawable=\"@color/md3_secondary_container\"" res/mipmap-anydpi-v26/ic_launcher_round.xml'
-
-          echo ""
-          echo "RESULT: $PASS passed, $FAIL failed"
-          [ "$FAIL" -eq 0 ] && echo "ALL GOOD" || echo "NEEDS FIX"
+      - name: Build debug
+        run: |
+          chmod +x gradlew
+          ./gradlew app:assembleDebug
