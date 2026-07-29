@@ -2,6 +2,7 @@
 <resources>
     <color name="preview_content_background">#303030</color>
 
-    <!-- Android 11 及以下深色前景色 -->
+    <!-- MD3 Baseline 暗色（Secondary 系，Android 11 及以下静态 fallback） -->
     <color name="md3_secondary">#CBC2DB</color>
+    <color name="md3_secondary_container">#332D41</color>
 </resources>
