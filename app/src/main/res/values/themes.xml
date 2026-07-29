@@ -14,7 +14,7 @@
         <item name="dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
 
         <!-- ══ 修复旧版 SeekBar 饱和度 ══ 强制 SeekBar 的 progressTint/thumbTint 解析到 ?attr/colorPrimary
-             （暗色动态取色 = system_accent1_200），而非被 PreferenceThemeOverlay 降级到 colorPrimaryContainer（system_accent1_100） -->
+             （暗色动态取色 = system_accent1_200），而非被 PreferenceThemeOverlay 降级到 colorSecondary（system_accent2_200） -->
         <item name="android:seekBarStyle">@style/Widget.App.SeekBar.MD3Tint</item>
     </style>
 

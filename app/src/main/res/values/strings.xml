@@ -62,7 +62,7 @@
     <string name="tag_seek_bar_step">Step value</string>
 
     <string name="feature_type_switch">Switch</string>
-    <string name="feature_type_seek_bar">SeekBar</string>
+    <string name="feature_type_seek_bar">Slider</string>
     <string name="feature_type_edit_text">Text</string>
     <string name="invalid_tag_type">Invalid tag type selected</string>
 

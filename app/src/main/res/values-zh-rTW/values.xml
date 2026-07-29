@@ -55,15 +55,16 @@
     <string name="tag_name">標籤名稱</string>
     <string name="tag_seek_bar_minimum">最小值</string>
     <string name="tag_seek_bar_maximum">最大值</string>
-    <string name="tag_seek_bar_step">滑動條間隔</string>
+    <string name="tag_seek_bar_step">滑桿間隔</string>
 
     <string name="feature_type_switch">開關</string>
-    <string name="feature_type_seek_bar">滑動條</string>
+    <string name="feature_type_seek_bar">滑桿</string>
     <string name="feature_type_edit_text">文字</string>
+    <string name="invalid_tag_type">選擇的標籤類型無效</string>
 
     <!-- MD3 Slider toggle (Toolbar menu) -->
     <string name="enable_md3_slider">啟用新版 Material 3 滑桿</string>
 
     <!-- Keep params on launch toggle -->
-    <string name="keep_params_on_launch">下次啟動不重置參數</string>
+    <string name="keep_params_on_launch">下次啟動時不重置參數</string>
 </resources>
