@@ -1,4 +1,4 @@
-name: Investigate FontFamily Dialog RadioButton Color
+name: Build Debug APK - RadioButton Color Probe
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - QwenMirror
 
 jobs:
-  investigate:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,115 +18,126 @@ jobs:
           ref: dev
           fetch-depth: 1
 
-      - name: Build report
-        shell: bash
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Repackage to com.vftest
         run: |
-          set -euo pipefail
-          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
+          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
+          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
+          grep -nE "applicationId" app/build.gradle.kts
 
-          R="radiobutton_investigation.txt"
-          RES="app/src/main/res"
-          JAVA="app/src/main/java"
-          OF="$JAVA/moe/echo/variablefonttest_n/OptionsFragment.kt"
+      - name: Inject RadioButton color probe
+        run: |
+          python3 << 'PYEOF'
+          import io
 
-          # 安全读取文件
-          safe_cat() {
-            if [ -f "$1" ]; then
-              cat "$1"
-            else
-              echo "[FILE NOT FOUND] $1"
-            fi
-          }
+          path = "app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
+          with io.open(path, "r", encoding="utf-8") as f:
+              src = f.read()
 
-          # 安全执行 awk（若文件不存在或模式不匹配则输出提示）
-          safe_awk_range() {
-            local file="$1" pattern="$2"
-            if [ ! -f "$file" ]; then
-              echo "[FILE NOT FOUND] $file"
-              return 0
-            fi
-            awk "$pattern" "$file" 2>/dev/null || echo "(awk pattern no match or error)"
-          }
+          # ── 1. 追加 import（若缺）──
+          imports = [
+              "import android.graphics.drawable.Drawable",
+              "import android.os.Handler",
+              "import android.os.Looper",
+              "import android.widget.CheckedTextView",
+          ]
+          for imp in imports:
+              if imp not in src:
+                  src = src.replace(
+                      "import com.google.android.material.dialog.MaterialAlertDialogBuilder",
+                      "import com.google.android.material.dialog.MaterialAlertDialogBuilder\n" + imp,
+                      1,
+                  )
 
-          {
-            echo "# FontFamily Dialog RadioButton Color Investigation"
-            echo "# Branch: dev"
-            echo "# Commit: $(git rev-parse HEAD)"
-            echo "# Date: $(date -u)"
-            echo ""
+          # ── 2. 注入 probe 方法（插在 onDisplayPreferenceDialog 之前）──
+          probe_method = '''
+    // ══ RB_PROBE：测量字族 dialog RadioButton 真实颜色（临时，测后移除）══
+    private fun probeRadioColor(dialog: androidx.appcompat.app.AlertDialog) {
+        fun resolveAttr(attr: Int): String {
+            val tv = android.util.TypedValue()
+            return if (requireContext().theme.resolveAttribute(attr, tv, true)) {
+                if (tv.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT)
+                    "#%08X".format(tv.data) else "resId=${tv.resourceId}"
+            } else "unresolved"
+        }
+        android.util.Log.d("RB_PROBE", "──── theme attrs ────")
+        android.util.Log.d("RB_PROBE", "colorPrimary=${resolveAttr(com.google.android.material.R.attr.colorPrimary)}")
+        android.util.Log.d("RB_PROBE", "colorSecondary=${resolveAttr(com.google.android.material.R.attr.colorSecondary)}")
+        android.util.Log.d("RB_PROBE", "colorControlActivated=${resolveAttr(androidx.appcompat.R.attr.colorControlActivated)}")
+        android.util.Log.d("RB_PROBE", "colorAccent=${resolveAttr(androidx.appcompat.R.attr.colorAccent)}")
 
-            # ═══ A. 主题链路 ═══
-            echo "## [A1] values/themes.xml"
-            echo '```xml'
-            safe_cat "$RES/values/themes.xml"
-            echo '```'
-            echo ""
-            echo "## [A2] values-night/themes.xml"
-            echo '```xml'
-            safe_cat "$RES/values-night/themes.xml"
-            echo '```'
-            echo ""
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                val lv = dialog.findViewById<android.widget.ListView>(android.R.id.list) ?: run {
+                    android.util.Log.d("RB_PROBE", "listview not found"); return@postDelayed
+                }
+                for (i in 0 until lv.childCount) {
+                    val ctv = lv.getChildAt(i) as? CheckedTextView ?: continue
+                    val dm = ctv.resources.displayMetrics
+                    val d: Drawable? = ctv.checkMarkDrawable
+                    android.util.Log.d("RB_PROBE", "item[$i] text='${ctv.text}' checked=${ctv.isChecked} " +
+                        "checkMark=${d?.javaClass?.simpleName} " +
+                        "tint=${d?.tintList} " +
+                        "w=${"%.1f".format((d?.intrinsicWidth ?: 0) / dm.density)}dp " +
+                        "h=${"%.1f".format((d?.intrinsicHeight ?: 0) / dm.density)}dp")
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("RB_PROBE", "probe error: " + e.message)
+            }
+        }, 700)
+    }
+    // ══ RB_PROBE end ══
 
-            # ═══ B. Dialog 构建代码 ═══
-            echo "## [B1] OptionsFragment — onDisplayPreferenceDialog / showMd3ListDialog / showMd3EditTextDialog"
-            echo '```kotlin'
-            safe_awk_range "$OF" '/override fun onDisplayPreferenceDialog/,/^    }$/'
-            echo '```'
-            echo ""
-            echo "## [B2] OptionsFragment — 所有 MaterialAlertDialogBuilder 构造处"
-            echo '```kotlin'
-            grep -nE "MaterialAlertDialogBuilder" "$OF" 2>/dev/null || echo "(no matches)"
-            echo '```'
-            echo ""
+'''
+          anchor = "    override fun onDisplayPreferenceDialog(preference: Preference) {"
+          if anchor not in src:
+              raise SystemExit("anchor (onDisplayPreferenceDialog) not found")
+          src = src.replace(anchor, probe_method + anchor, 1)
 
-            # ═══ C. 全局检索主题/取色关键字 ═══
-            echo "## [C1] res/ 中 dialog/radio/取色 关键字命中"
-            echo '```'
-            grep -rniE "materialAlertDialogTheme|alertDialogTheme|dialogTheme|colorControlActivated|colorAccent|radioButtonStyle|listChoiceIndicator|colorControlNormal" "$RES" 2>/dev/null || echo "(no match)"
-            echo '```'
-            echo ""
-            echo "## [C2] res/ 中 colorPrimary / colorSecondary 自定义命中"
-            echo '```'
-            grep -rniE "name=\"colorPrimary\"|name=\"colorSecondary\"|name=\"colorControlActivated\"|name=\"colorAccent\"" "$RES" 2>/dev/null || echo "(no custom colorPrimary/colorSecondary/colorControlActivated/colorAccent defined)"
-            echo '```'
-            echo ""
+          # ── 3. 在 showMd3ListDialog 的 .show() 后调用 probe ──
+          # showMd3ListDialog 以 .show() 结尾；将其改为 .show().also { probeRadioColor(it) }
+          # 精确定位 showMd3ListDialog 内唯一的 .show()
+          marker = "    private fun showMd3ListDialog(preference: ListPreference) {"
+          idx = src.find(marker)
+          if idx < 0:
+              raise SystemExit("showMd3ListDialog not found")
+          # 在该方法范围内找第一个 ".show()"
+          show_idx = src.find(".show()", idx)
+          if show_idx < 0:
+              raise SystemExit(".show() in showMd3ListDialog not found")
+          src = src[:show_idx] + ".show().also { probeRadioColor(it) }" + src[show_idx + len(".show()"):]
 
-            # ═══ D. 颜色资源（确认 Primary/Secondary 取值）═══
-            echo "## [D] 各 colors.xml 全文"
-            for f in $(find "$RES" -name "colors.xml" | sort); do
-              echo "### $f"
-              echo '```xml'
-              safe_cat "$f"
-              echo '```'
-              echo ""
-            done
+          with io.open(path, "w", encoding="utf-8") as f:
+              f.write(src)
+          print("OK: probe injected")
 
-            # ═══ E. 动态取色入口 ═══
-            echo "## [E] MainActivity.kt — DynamicColors"
-            echo '```kotlin'
-            grep -nE "DynamicColors|applyToActivityIfAvailable" "$JAVA/moe/echo/variablefonttest_n/MainActivity.kt" 2>/dev/null || echo "(no DynamicColors)"
-            echo '```'
-            echo ""
+          # 校验
+          for kw in ["probeRadioColor", "RB_PROBE", ".also { probeRadioColor(it) }"]:
+              print("contains '%s': %s" % (kw, kw in src))
+          PYEOF
 
-            # ═══ F. 库版本 ═══
-            echo "## [F] gradle/libs.versions.toml（material / preference 版本）"
-            echo '```toml'
-            grep -iE "material|preference|googleMaterial" gradle/libs.versions.toml 2>/dev/null || echo "(no version info)"
-            echo '```'
-            echo ""
+      - name: Verify injection
+        run: |
+          echo "=== probe markers ==="
+          grep -c "RB_PROBE" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
+          grep -n "probeRadioColor" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
 
-            # ═══ G. 是否存在自定义 dialog/radio 样式文件 ═══
-            echo "## [G] res/values 下所有 style 定义（检索 dialog/radio/alert 相关）"
-            echo '```'
-            grep -rniE "<style .*(dialog|radio|alert)" "$RES" 2>/dev/null || echo "(no custom dialog/radio/alert style)"
-            echo '```'
-          } > "$R"
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew app:assembleDebug --no-daemon
 
-          echo "Report size: $(wc -c < "$R") bytes"
-
-      - name: Upload
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: radiobutton-investigation
-          path: radiobutton_investigation.txt
+          name: vftest-rb-probe
+          path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
