@@ -1,6 +1,8 @@
 package moe.echo.variablefonttest_n
 
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
@@ -24,10 +26,13 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.PreferenceViewHolder
 import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
 import androidx.preference.PreferenceManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -468,6 +473,67 @@ class OptionsFragment : PreferenceFragmentCompat() {
         } catch (_: Exception) { }
     }
 
+    /**
+     * 将 Preference 列表分隔线改为 MD3 ?attr/colorOutlineVariant：
+     * Android 12+ 随壁纸动态取色；Android 11- 为 MD3 Baseline 紫灰调。
+     * 移除库默认 DividerDecoration（中性灰）后替换为自定义装饰，避免双重分隔线。
+     */
+    private fun applyMd3DividerColor() {
+        val recyclerView = listView
+        val dividerColor = MaterialColors.getColor(
+            recyclerView.context,
+            com.google.android.material.R.attr.colorOutlineVariant,
+            android.graphics.Color.GRAY
+        )
+        val heightPx = (1 * resources.displayMetrics.density).toInt()  // 1dp，与库默认一致
+
+        // 移除库默认 DividerDecoration（按类名识别）
+        for (i in recyclerView.itemDecorationCount - 1 downTo 0) {
+            if (recyclerView.getItemDecorationAt(i).javaClass.name.contains("DividerDecoration")) {
+                recyclerView.removeItemDecorationAt(i)
+            }
+        }
+        recyclerView.addItemDecoration(Md3DividerDecoration(dividerColor, heightPx))
+    }
+
+    /**
+     * 用指定颜色绘制 Preference 分隔线，沿用库判定逻辑：
+     * 仅当「上一项允许下方分隔线」且「下一项允许上方分隔线」时绘制，
+     * 从而保持 SliderPreference(setDividerAllowedAbove/Below=false) 周围无分隔线。
+     */
+    private class Md3DividerDecoration(
+        private val dividerColor: Int,
+        private val dividerHeightPx: Int
+    ) : RecyclerView.ItemDecoration() {
+
+        private val paint = Paint().apply {
+            color = dividerColor
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+
+        override fun onDrawOver(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
+            val childCount = parent.childCount
+            if (childCount < 2) return
+            for (i in 0 until childCount - 1) {
+                val child = parent.getChildAt(i)
+                val nextChild = parent.getChildAt(i + 1)
+                val holder = parent.getChildViewHolder(child) as? PreferenceViewHolder ?: continue
+                val nextHolder = parent.getChildViewHolder(nextChild) as? PreferenceViewHolder ?: continue
+
+                if (holder.isDividerAllowedBelow() && nextHolder.isDividerAllowedAbove()) {
+                    val lp = child.layoutParams as? RecyclerView.LayoutParams ?: continue
+                    val bottom = child.bottom + lp.bottomMargin
+                    val top = bottom - dividerHeightPx
+                    c.drawRect(
+                        child.left.toFloat(), top.toFloat(),
+                        child.right.toFloat(), bottom.toFloat(), paint
+                    )
+                }
+            }
+        }
+    }
+
     /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
     private fun restoreCustomPrefs(useMd3Slider: Boolean, applyVariation: (String) -> Unit) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -642,6 +708,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         // https://developer.android.com/develop/ui/views/layout/edge-to-edge
         // https://medium.com/androiddevelopers/gesture-navigation-handling-gesture-conflicts-8ee9c2665c69#eaaa
         listView.clipToPadding = false
+        applyMd3DividerColor()
         ViewCompat.setOnApplyWindowInsetsListener(listView) { v, windowInsets ->
             val insets = WindowInsetsUtil.safeDrawing(windowInsets)
 
