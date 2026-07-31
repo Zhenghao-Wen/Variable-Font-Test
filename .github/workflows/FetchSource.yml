@@ -1,48 +1,36 @@
 name: Build Debug APK - RadioButton Color Probe
-
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - QwenMirror
-
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
     steps:
       - name: Checkout dev
         uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 1
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-
       - name: Repackage to com.vftest
         run: |
           sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
           sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
           grep -n "applicationId" app/build.gradle.kts
-
       - name: Write probe injector script
         run: |
           cat > inject_probe.py <<'PYSCRIPT'
           import io, sys
-
           path = "app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
           with io.open(path, "r", encoding="utf-8") as f:
               lines = f.readlines()
-
           # 1) 确保 import 存在
           needed = [
               "import android.graphics.drawable.Drawable",
@@ -58,7 +46,6 @@ jobs:
                       "import com.google.android.material.dialog.MaterialAlertDialogBuilder\n" + imp,
                       1,
                   )
-
           # 2) 在 onDisplayPreferenceDialog 前插入 probe 方法
           probe = (
               "\n"
@@ -83,7 +70,8 @@ jobs:
               "                for (i in 0 until lv.childCount) {\n"
               "                    val ctv = lv.getChildAt(i) as? CheckedTextView ?: continue\n"
               "                    val d: Drawable? = ctv.checkMarkDrawable\n"
-              "                    android.util.Log.d(\"RB_PROBE\", \"item[\" + i + \"] text='\" + ctv.text + \"' checked=\" + ctv.isChecked + \" checkMark=\" + (d?.javaClass?.simpleName ?: \"null\") + \" tint=\" + d?.tintList)\n"
+              "                    val tint = d?.let { androidx.core.graphics.drawable.DrawableCompat.getTintList(it) }\n"
+              "                    android.util.Log.d(\"RB_PROBE\", \"item[\" + i + \"] text='\" + ctv.text + \"' checked=\" + ctv.isChecked + \" checkMark=\" + (d?.javaClass?.simpleName ?: \"null\") + \" tint=\" + tint)\n"
               "                }\n"
               "            } catch (e: Exception) {\n"
               "                android.util.Log.d(\"RB_PROBE\", \"probe error: \" + e.message)\n"
@@ -97,7 +85,6 @@ jobs:
           if anchor not in text:
               print("ERROR: onDisplayPreferenceDialog anchor not found"); sys.exit(1)
           text = text.replace(anchor, probe + anchor, 1)
-
           # 3) showMd3ListDialog 的 .show() 改为 .show().also { probeRadioColor(it) }
           marker = "    private fun showMd3ListDialog(preference: ListPreference) {"
           midx = text.find(marker)
@@ -107,7 +94,6 @@ jobs:
           if sidx < 0:
               print("ERROR: .show() in showMd3ListDialog not found"); sys.exit(1)
           text = text[:sidx] + ".show().also { probeRadioColor(it) }" + text[sidx + len(".show()"):]
-
           with io.open(path, "w", encoding="utf-8") as f:
               f.write(text)
           print("OK: probe injected")
@@ -115,22 +101,18 @@ jobs:
           print("has .also call:", ".also { probeRadioColor(it) }" in text)
           PYSCRIPT
           echo "inject_probe.py written"
-
       - name: Run probe injector
         run: python3 inject_probe.py
-
       - name: Verify injection
         run: |
           echo "=== RB_PROBE marker count ==="
           grep -c "RB_PROBE" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
           echo "=== probeRadioColor references ==="
           grep -n "probeRadioColor" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
-
       - name: Build debug APK
         run: |
           chmod +x gradlew
           ./gradlew app:assembleDebug --no-daemon
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
