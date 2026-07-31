@@ -29,18 +29,31 @@ jobs:
 
       - name: Repackage to com.vftest
         run: |
-          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
-          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
+          set -euo pipefail
+          # 替换 applicationId，若失败则退出
+          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts || {
+            echo "ERROR: applicationId replacement failed" >&2
+            exit 1
+          }
+          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml || {
+            echo "ERROR: android:label replacement failed" >&2
+            exit 1
+          }
           grep -nE "applicationId" app/build.gradle.kts
 
       - name: Inject RadioButton color probe
         run: |
           python3 << 'PYEOF'
-          import io
+          import sys
+          import re
 
           path = "app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
-          with io.open(path, "r", encoding="utf-8") as f:
-              src = f.read()
+          try:
+              with open(path, "r", encoding="utf-8") as f:
+                  src = f.read()
+          except FileNotFoundError:
+              print("ERROR: OptionsFragment.kt not found", file=sys.stderr)
+              sys.exit(1)
 
           # ── 1. 追加 import（若缺）──
           imports = [
@@ -99,26 +112,31 @@ jobs:
 '''
           anchor = "    override fun onDisplayPreferenceDialog(preference: Preference) {"
           if anchor not in src:
-              raise SystemExit("anchor (onDisplayPreferenceDialog) not found")
+              print("ERROR: anchor (onDisplayPreferenceDialog) not found", file=sys.stderr)
+              sys.exit(1)
           src = src.replace(anchor, probe_method + anchor, 1)
 
           # ── 3. 在 showMd3ListDialog 的 .show() 后调用 probe ──
-          # showMd3ListDialog 以 .show() 结尾；将其改为 .show().also { probeRadioColor(it) }
-          # 精确定位 showMd3ListDialog 内唯一的 .show()
           marker = "    private fun showMd3ListDialog(preference: ListPreference) {"
           idx = src.find(marker)
           if idx < 0:
-              raise SystemExit("showMd3ListDialog not found")
+              print("ERROR: showMd3ListDialog not found", file=sys.stderr)
+              sys.exit(1)
           # 在该方法范围内找第一个 ".show()"
           show_idx = src.find(".show()", idx)
           if show_idx < 0:
-              raise SystemExit(".show() in showMd3ListDialog not found")
+              print("ERROR: .show() in showMd3ListDialog not found", file=sys.stderr)
+              sys.exit(1)
           src = src[:show_idx] + ".show().also { probeRadioColor(it) }" + src[show_idx + len(".show()"):]
 
-          with io.open(path, "w", encoding="utf-8") as f:
-              f.write(src)
-          print("OK: probe injected")
+          try:
+              with open(path, "w", encoding="utf-8") as f:
+                  f.write(src)
+          except IOError as e:
+              print(f"ERROR writing file: {e}", file=sys.stderr)
+              sys.exit(1)
 
+          print("OK: probe injected")
           # 校验
           for kw in ["probeRadioColor", "RB_PROBE", ".also { probeRadioColor(it) }"]:
               print("contains '%s': %s" % (kw, kw in src))
@@ -127,11 +145,12 @@ jobs:
       - name: Verify injection
         run: |
           echo "=== probe markers ==="
-          grep -c "RB_PROBE" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
-          grep -n "probeRadioColor" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
+          grep -c "RB_PROBE" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt || echo "0"
+          grep -n "probeRadioColor" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt || echo "(not found)"
 
       - name: Build debug APK
         run: |
+          set -euo pipefail
           chmod +x gradlew
           ./gradlew app:assembleDebug --no-daemon
 
