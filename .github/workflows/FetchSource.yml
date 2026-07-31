@@ -13,7 +13,8 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout dev
+        uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 1
@@ -29,127 +30,104 @@ jobs:
 
       - name: Repackage to com.vftest
         run: |
-          set -euo pipefail
-          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts || {
-            echo "ERROR: applicationId replacement failed" >&2
-            exit 1
-          }
-          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml || {
-            echo "ERROR: android:label replacement failed" >&2
-            exit 1
-          }
-          grep -nE "applicationId" app/build.gradle.kts
+          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
+          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
+          grep -n "applicationId" app/build.gradle.kts
 
-      - name: Inject RadioButton color probe
+      - name: Write probe injector script
         run: |
-          python3 << 'PYEOF'
-          import sys
+          cat > inject_probe.py <<'PYSCRIPT'
+          import io, sys
 
           path = "app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
-          try:
-              with open(path, "r", encoding="utf-8") as f:
-                  src = f.read()
-          except FileNotFoundError:
-              print("ERROR: OptionsFragment.kt not found", file=sys.stderr)
-              sys.exit(1)
+          with io.open(path, "r", encoding="utf-8") as f:
+              lines = f.readlines()
 
-          # ── 1. 追加 import（若缺）──
-          imports = [
+          # 1) 确保 import 存在
+          needed = [
               "import android.graphics.drawable.Drawable",
               "import android.os.Handler",
               "import android.os.Looper",
               "import android.widget.CheckedTextView",
           ]
-          for imp in imports:
-              if imp not in src:
-                  src = src.replace(
+          text = "".join(lines)
+          for imp in needed:
+              if imp not in text:
+                  text = text.replace(
                       "import com.google.android.material.dialog.MaterialAlertDialogBuilder",
                       "import com.google.android.material.dialog.MaterialAlertDialogBuilder\n" + imp,
                       1,
                   )
 
-          # ── 2. 注入 probe 方法（插在 onDisplayPreferenceDialog 之前）──
-          probe_method = r'''
-        // ══ RB_PROBE：测量字族 dialog RadioButton 真实颜色（临时，测后移除）══
-        private fun probeRadioColor(dialog: androidx.appcompat.app.AlertDialog) {
-            fun resolveAttr(attr: Int): String {
-                val tv = android.util.TypedValue()
-                return if (requireContext().theme.resolveAttribute(attr, tv, true)) {
-                    if (tv.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT)
-                        "#%08X".format(tv.data) else "resId=${tv.resourceId}"
-                } else "unresolved"
-            }
-            android.util.Log.d("RB_PROBE", "──── theme attrs ────")
-            android.util.Log.d("RB_PROBE", "colorPrimary=${resolveAttr(com.google.android.material.R.attr.colorPrimary)}")
-            android.util.Log.d("RB_PROBE", "colorSecondary=${resolveAttr(com.google.android.material.R.attr.colorSecondary)}")
-            android.util.Log.d("RB_PROBE", "colorControlActivated=${resolveAttr(androidx.appcompat.R.attr.colorControlActivated)}")
-            android.util.Log.d("RB_PROBE", "colorAccent=${resolveAttr(androidx.appcompat.R.attr.colorAccent)}")
-
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    val lv = dialog.findViewById<android.widget.ListView>(android.R.id.list) ?: run {
-                        android.util.Log.d("RB_PROBE", "listview not found"); return@postDelayed
-                    }
-                    for (i in 0 until lv.childCount) {
-                        val ctv = lv.getChildAt(i) as? CheckedTextView ?: continue
-                        val dm = ctv.resources.displayMetrics
-                        val d: Drawable? = ctv.checkMarkDrawable
-                        android.util.Log.d("RB_PROBE", "item[$i] text='${ctv.text}' checked=${ctv.isChecked} " +
-                            "checkMark=${d?.javaClass?.simpleName} " +
-                            "tint=${d?.tintList} " +
-                            "w=${"%.1f".format((d?.intrinsicWidth ?: 0) / dm.density)}dp " +
-                            "h=${"%.1f".format((d?.intrinsicHeight ?: 0) / dm.density)}dp")
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.d("RB_PROBE", "probe error: " + e.message)
-                }
-            }, 700)
-        }
-        // ══ RB_PROBE end ══
-
-        '''
-          # 注意：r'''...''' 原始字符串，但内部 `$` 在 Kotlin 中需要保留，而 Python 原始字符串不会解析 `$`
-          # 但我们想在 Kotlin 中使用 `$` 模板，所以不能转义；原始字符串不会干扰 `$`。
-
+          # 2) 在 onDisplayPreferenceDialog 前插入 probe 方法
+          probe = (
+              "\n"
+              "    // == RB_PROBE: measure font-family dialog RadioButton color (temporary) ==\n"
+              "    private fun probeRadioColor(dialog: androidx.appcompat.app.AlertDialog) {\n"
+              "        fun resolveAttr(attr: Int): String {\n"
+              "            val tv = android.util.TypedValue()\n"
+              "            return if (requireContext().theme.resolveAttribute(attr, tv, true)) {\n"
+              "                if (tv.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT)\n"
+              "                    \"#%08X\".format(tv.data) else \"resId=\" + tv.resourceId\n"
+              "            } else \"unresolved\"\n"
+              "        }\n"
+              "        android.util.Log.d(\"RB_PROBE\", \"---- theme attrs ----\")\n"
+              "        android.util.Log.d(\"RB_PROBE\", \"colorPrimary=\" + resolveAttr(com.google.android.material.R.attr.colorPrimary))\n"
+              "        android.util.Log.d(\"RB_PROBE\", \"colorSecondary=\" + resolveAttr(com.google.android.material.R.attr.colorSecondary))\n"
+              "        android.util.Log.d(\"RB_PROBE\", \"colorControlActivated=\" + resolveAttr(androidx.appcompat.R.attr.colorControlActivated))\n"
+              "        android.util.Log.d(\"RB_PROBE\", \"colorAccent=\" + resolveAttr(androidx.appcompat.R.attr.colorAccent))\n"
+              "        Handler(Looper.getMainLooper()).postDelayed({\n"
+              "            try {\n"
+              "                val lv = dialog.findViewById<android.widget.ListView>(android.R.id.list)\n"
+              "                if (lv == null) { android.util.Log.d(\"RB_PROBE\", \"listview not found\"); return@postDelayed }\n"
+              "                for (i in 0 until lv.childCount) {\n"
+              "                    val ctv = lv.getChildAt(i) as? CheckedTextView ?: continue\n"
+              "                    val d: Drawable? = ctv.checkMarkDrawable\n"
+              "                    android.util.Log.d(\"RB_PROBE\", \"item[\" + i + \"] text='\" + ctv.text + \"' checked=\" + ctv.isChecked + \" checkMark=\" + (d?.javaClass?.simpleName ?: \"null\") + \" tint=\" + d?.tintList)\n"
+              "                }\n"
+              "            } catch (e: Exception) {\n"
+              "                android.util.Log.d(\"RB_PROBE\", \"probe error: \" + e.message)\n"
+              "            }\n"
+              "        }, 700)\n"
+              "    }\n"
+              "    // == RB_PROBE end ==\n"
+              "\n"
+          )
           anchor = "    override fun onDisplayPreferenceDialog(preference: Preference) {"
-          if anchor not in src:
-              print("ERROR: anchor (onDisplayPreferenceDialog) not found", file=sys.stderr)
-              sys.exit(1)
-          src = src.replace(anchor, probe_method + anchor, 1)
+          if anchor not in text:
+              print("ERROR: onDisplayPreferenceDialog anchor not found"); sys.exit(1)
+          text = text.replace(anchor, probe + anchor, 1)
 
-          # ── 3. 在 showMd3ListDialog 的 .show() 后调用 probe ──
+          # 3) showMd3ListDialog 的 .show() 改为 .show().also { probeRadioColor(it) }
           marker = "    private fun showMd3ListDialog(preference: ListPreference) {"
-          idx = src.find(marker)
-          if idx < 0:
-              print("ERROR: showMd3ListDialog not found", file=sys.stderr)
-              sys.exit(1)
-          show_idx = src.find(".show()", idx)
-          if show_idx < 0:
-              print("ERROR: .show() in showMd3ListDialog not found", file=sys.stderr)
-              sys.exit(1)
-          src = src[:show_idx] + ".show().also { probeRadioColor(it) }" + src[show_idx + len(".show()"):]
+          midx = text.find(marker)
+          if midx < 0:
+              print("ERROR: showMd3ListDialog not found"); sys.exit(1)
+          sidx = text.find(".show()", midx)
+          if sidx < 0:
+              print("ERROR: .show() in showMd3ListDialog not found"); sys.exit(1)
+          text = text[:sidx] + ".show().also { probeRadioColor(it) }" + text[sidx + len(".show()"):]
 
-          try:
-              with open(path, "w", encoding="utf-8") as f:
-                  f.write(src)
-          except IOError as e:
-              print(f"ERROR writing file: {e}", file=sys.stderr)
-              sys.exit(1)
-
+          with io.open(path, "w", encoding="utf-8") as f:
+              f.write(text)
           print("OK: probe injected")
-          for kw in ["probeRadioColor", "RB_PROBE", ".also { probeRadioColor(it) }"]:
-              print(f"contains '{kw}': {kw in src}")
-          PYEOF
+          print("has probeRadioColor:", "probeRadioColor" in text)
+          print("has .also call:", ".also { probeRadioColor(it) }" in text)
+          PYSCRIPT
+          echo "inject_probe.py written"
+
+      - name: Run probe injector
+        run: python3 inject_probe.py
 
       - name: Verify injection
         run: |
-          echo "=== probe markers ==="
-          grep -c "RB_PROBE" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt || echo "0"
-          grep -n "probeRadioColor" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt || echo "(not found)"
+          echo "=== RB_PROBE marker count ==="
+          grep -c "RB_PROBE" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
+          echo "=== probeRadioColor references ==="
+          grep -n "probeRadioColor" app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt
 
       - name: Build debug APK
         run: |
-          set -euo pipefail
           chmod +x gradlew
           ./gradlew app:assembleDebug --no-daemon
 
