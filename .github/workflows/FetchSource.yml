@@ -1,4 +1,4 @@
-name: Investigate Preference Divider Color
+name: Investigate FontFamily Dialog RadioButton Color
 
 on:
   workflow_dispatch:
@@ -18,17 +18,18 @@ jobs:
           ref: dev
           fetch-depth: 1
 
-      - name: Build investigation report
+      - name: Build report
         shell: bash
         run: |
           set -euo pipefail
           trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
 
-          R="divider_investigation.txt"
+          R="radiobutton_investigation.txt"
           RES="app/src/main/res"
           JAVA="app/src/main/java"
+          OF="$JAVA/moe/echo/variablefonttest_n/OptionsFragment.kt"
 
-          # 安全读取文件（若不存在则输出提示）
+          # 安全读取文件
           safe_cat() {
             if [ -f "$1" ]; then
               cat "$1"
@@ -37,14 +38,24 @@ jobs:
             fi
           }
 
+          # 安全执行 awk（若文件不存在或模式不匹配则输出提示）
+          safe_awk_range() {
+            local file="$1" pattern="$2"
+            if [ ! -f "$file" ]; then
+              echo "[FILE NOT FOUND] $file"
+              return 0
+            fi
+            awk "$pattern" "$file" 2>/dev/null || echo "(awk pattern no match or error)"
+          }
+
           {
-            echo "# Preference Divider Color Investigation"
+            echo "# FontFamily Dialog RadioButton Color Investigation"
             echo "# Branch: dev"
             echo "# Commit: $(git rev-parse HEAD)"
             echo "# Date: $(date -u)"
             echo ""
 
-            # ═══ A. 主题链路（Divider 颜色的最终来源）═══
+            # ═══ A. 主题链路 ═══
             echo "## [A1] values/themes.xml"
             echo '```xml'
             safe_cat "$RES/values/themes.xml"
@@ -55,99 +66,67 @@ jobs:
             safe_cat "$RES/values-night/themes.xml"
             echo '```'
             echo ""
-            echo "## [A3] 是否存在 values-v31 / values-night-v31 主题"
-            echo '```'
-            ls -la "$RES/values-v31/" 2>/dev/null || echo "(no values-v31 dir)"
-            ls -la "$RES/values-night-v31/" 2>/dev/null || echo "(no values-night-v31 dir)"
-            echo '```'
-            echo ""
 
-            # ═══ B. 动态取色入口 ═══
-            echo "## [B] MainActivity.kt（DynamicColors 应用情况）"
+            # ═══ B. Dialog 构建代码 ═══
+            echo "## [B1] OptionsFragment — onDisplayPreferenceDialog / showMd3ListDialog / showMd3EditTextDialog"
             echo '```kotlin'
-            safe_cat "$JAVA/moe/echo/variablefonttest_n/MainActivity.kt"
+            safe_awk_range "$OF" '/override fun onDisplayPreferenceDialog/,/^    }$/'
             echo '```'
             echo ""
-
-            # ═══ C. 全局检索 Divider / 取色关键字 ═══
-            echo "## [C1] res/ 中 divider / colorOutline / listDivider 命中"
-            echo '```'
-            grep -rniE "divider|colorOutline|listDivider" "$RES" 2>/dev/null || echo "(no match in res/)"
-            echo '```'
-            echo ""
-            echo "## [C2] java/ 中 Divider / ItemDecoration / colorOutline 命中"
-            echo '```'
-            grep -rniE "divider|ItemDecoration|colorOutline|setDivider" "$JAVA" 2>/dev/null || echo "(no match in java/)"
-            echo '```'
-            echo ""
-
-            # ═══ D. OptionsFragment 中 RecyclerView / Divider 相关片段 ═══
-            echo "## [D] OptionsFragment.kt 中 RecyclerView/listView/Divider 相关行"
+            echo "## [B2] OptionsFragment — 所有 MaterialAlertDialogBuilder 构造处"
             echo '```kotlin'
-            grep -nE "RecyclerView|listView|Divider|ItemDecoration|onCreateRecyclerView|clipToPadding" \
-              "$JAVA/moe/echo/variablefonttest_n/OptionsFragment.kt" 2>/dev/null || echo "(no match)"
+            grep -nE "MaterialAlertDialogBuilder" "$OF" 2>/dev/null || echo "(no matches)"
             echo '```'
             echo ""
 
-            # ═══ E. 两个自定义 Preference 的 divider 相关代码 ═══
-            echo "## [E1] SliderPreference.kt（divider 相关）"
-            echo '```kotlin'
-            grep -nE "Divider|divider" "$JAVA/moe/echo/variablefonttest_n/SliderPreference.kt" 2>/dev/null || echo "(no divider code)"
+            # ═══ C. 全局检索主题/取色关键字 ═══
+            echo "## [C1] res/ 中 dialog/radio/取色 关键字命中"
+            echo '```'
+            grep -rniE "materialAlertDialogTheme|alertDialogTheme|dialogTheme|colorControlActivated|colorAccent|radioButtonStyle|listChoiceIndicator|colorControlNormal" "$RES" 2>/dev/null || echo "(no match)"
             echo '```'
             echo ""
-            echo "## [E2] SeekBarPreference.kt（divider 相关）"
-            echo '```kotlin'
-            grep -nE "Divider|divider" "$JAVA/moe/echo/variablefonttest_n/SeekBarPreference.kt" 2>/dev/null || echo "(no divider code)"
+            echo "## [C2] res/ 中 colorPrimary / colorSecondary 自定义命中"
             echo '```'
-            echo ""
-
-            # ═══ F. 库版本（决定 PreferenceThemeOverlay 行为）═══
-            echo "## [F1] app/build.gradle.kts"
-            echo '```kotlin'
-            safe_cat app/build.gradle.kts
-            echo '```'
-            echo ""
-            echo "## [F2] gradle/libs.versions.toml"
-            echo '```toml'
-            safe_cat gradle/libs.versions.toml
+            grep -rniE "name=\"colorPrimary\"|name=\"colorSecondary\"|name=\"colorControlActivated\"|name=\"colorAccent\"" "$RES" 2>/dev/null || echo "(no custom colorPrimary/colorSecondary/colorControlActivated/colorAccent defined)"
             echo '```'
             echo ""
 
-            # ═══ G. 颜色资源中是否定义 outline / divider 色 ═══
-            echo "## [G] 各 colors.xml 中 outline/divider 相关定义"
-            echo '```'
+            # ═══ D. 颜色资源（确认 Primary/Secondary 取值）═══
+            echo "## [D] 各 colors.xml 全文"
             for f in $(find "$RES" -name "colors.xml" | sort); do
-              echo "--- $f ---"
-              grep -niE "outline|divider" "$f" 2>/dev/null || echo "(none)"
+              echo "### $f"
+              echo '```xml'
+              safe_cat "$f"
+              echo '```'
+              echo ""
             done
+
+            # ═══ E. 动态取色入口 ═══
+            echo "## [E] MainActivity.kt — DynamicColors"
+            echo '```kotlin'
+            grep -nE "DynamicColors|applyToActivityIfAvailable" "$JAVA/moe/echo/variablefonttest_n/MainActivity.kt" 2>/dev/null || echo "(no DynamicColors)"
             echo '```'
             echo ""
 
-            # ═══ H. Switch 控件布局（MD3 化参考）═══
-            echo "## [H1] preference_widget_switch.xml"
-            echo '```xml'
-            safe_cat "$RES/layout/preference_widget_switch.xml"
-            echo '```'
-            echo ""
-            echo "## [H2] preference_widget_switch_compat.xml"
-            echo '```xml'
-            safe_cat "$RES/layout/preference_widget_switch_compat.xml"
+            # ═══ F. 库版本 ═══
+            echo "## [F] gradle/libs.versions.toml（material / preference 版本）"
+            echo '```toml'
+            grep -iE "material|preference|googleMaterial" gradle/libs.versions.toml 2>/dev/null || echo "(no version info)"
             echo '```'
             echo ""
 
-            # ═══ I. Manifest（主题挂载确认）═══
-            echo "## [I] AndroidManifest.xml"
-            echo '```xml'
-            safe_cat app/src/main/AndroidManifest.xml
+            # ═══ G. 是否存在自定义 dialog/radio 样式文件 ═══
+            echo "## [G] res/values 下所有 style 定义（检索 dialog/radio/alert 相关）"
+            echo '```'
+            grep -rniE "<style .*(dialog|radio|alert)" "$RES" 2>/dev/null || echo "(no custom dialog/radio/alert style)"
             echo '```'
           } > "$R"
 
-          SIZE=$(wc -c < "$R")
-          echo "Report size: $SIZE bytes"
+          echo "Report size: $(wc -c < "$R") bytes"
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: divider-investigation
-          path: divider_investigation.txt
+          name: radiobutton-investigation
+          path: radiobutton_investigation.txt
           retention-days: 14
