@@ -1,4 +1,4 @@
-name: Debug Build - Slider Alignment Final (delta=4dp) v2
+name: Debug Build - Slider Alignment Tuned
 
 on:
   workflow_dispatch:
@@ -42,8 +42,8 @@ jobs:
 
       - name: Write injection script
         run: |
-          cat > inject_final.py << 'PYSCRIPT'
-          import io, sys
+          cat > inject_tuned.py << 'PYSCRIPT'
+          import io, sys, re
 
           path = "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt"
           try:
@@ -61,49 +61,78 @@ jobs:
               src = src.replace(old, new, 1)
               print("OK [" + label + "]")
 
-          # (1) δ: 1dp -> 4dp
+          # (1) 常量：单一 δ 换成三个语义常量（兼容 dev 上仍是 1f 或已被改过的情况）
+          src = re.sub(
+              r"const val TRACK_END_INSET_DP = [0-9.]+f",
+              "const val LEFT_SHIFT_DP = 6f\n"
+              "        const val ASSEMBLY_SHIFT_DP = 4f\n"
+              "        const val GAP_TRIM_DP = 4f",
+              src, count=1)
+          if "LEFT_SHIFT_DP" not in src:
+              print("ERROR [constants] replace failed", file=sys.stderr)
+              sys.exit(1)
+          print("OK [constants]")
+
+          # (2) 数值区 TextView：wght 时加 marginEnd 把整组左移（治"偏右"）
           repl(
-              "const val TRACK_END_INSET_DP = 1f",
-              "const val TRACK_END_INSET_DP = 4f",
-              "delta 1->4",
+              "width = (tv.paint.measureText(\"1000\") + paddingH + 2 * density).toInt()",
+              "width = (tv.paint.measureText(\"1000\") + paddingH + 2 * density).toInt()\n"
+              "                if (showLabel) (this as? android.view.ViewGroup.MarginLayoutParams)?.marginEnd = (ASSEMBLY_SHIFT_DP * density).toInt()",
+              "value text marginEnd",
           )
 
-          # (2) 补偿块内现算数值区宽度 W（dev 上没有，需注入；幂等）
-          if "val valueTextWidth = valueText?.let" not in src:
-              repl(
-                  "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()",
-                  "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()\n"
-                  "                val valueTextWidth = valueText?.let { tv -> (tv.paint.measureText(\"1000\") + (tv.paddingStart + tv.paddingEnd) + 2 * s.resources.displayMetrics.density).toInt() } ?: 0",
-                  "compute W",
-              )
-          else:
-              print("SKIP [compute W already present]")
-
-          # (3) ★关键修正★ 匹配 dev 上的真实旧公式，替换为定稿公式
-          #     旧(dev): if (showLabel) -inset else -(inset + delta)
-          #     新(定稿): if (showLabel) -(inset + delta) else (valueTextWidth - inset)
+          # (3) 补偿块：delta 行换成三常量 + 现算 W
           repl(
+              "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()",
+              "val density = s.resources.displayMetrics.density\n"
+              "                val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()\n"
+              "                val gapTrimPx = (GAP_TRIM_DP * density).toInt()\n"
+              "                val valueTextWidth = valueText?.let { tv -> (tv.paint.measureText(\"1000\") + (tv.paddingStart + tv.paddingEnd) + 2 * density).toInt() } ?: 0",
+              "compensation vars",
+          )
+
+          # (4) marginStart：用 leftShiftPx
+          repl(
+              "lp.marginStart = -(inset - delta)",
+              "lp.marginStart = -(inset - leftShiftPx)",
+              "marginStart",
+          )
+
+          # (5) marginEnd 定稿：wght=-inset(不顶入)；非wght=(W-trim)-inset
+          #     兼容 dev 原始公式 与 已被改过的中间态
+          for candidate in [
               "lp.marginEnd = if (showLabel) -inset else -(inset + delta)",
               "lp.marginEnd = if (showLabel) -(inset + delta) else (valueTextWidth - inset)",
-              "FINAL marginEnd",
-          )
+              "lp.marginEnd = if (showLabel) -inset else (valueTextWidth + delta - inset)",
+          ]:
+              if candidate in src:
+                  repl(
+                      candidate,
+                      "lp.marginEnd = if (showLabel) -inset else (valueTextWidth - gapTrimPx - inset)",
+                      "marginEnd FINAL",
+                  )
+                  break
+          else:
+              print("ERROR [marginEnd FINAL] no known formula matched", file=sys.stderr)
+              sys.exit(1)
 
-          # (4) 跟踪日志（幂等）
+          # (6) 跟踪日志（幂等）
           if "SLIDER_GAP" not in src:
               repl(
                   "                    s.layoutParams = lp",
                   "                    s.layoutParams = lp\n"
                   "                    android.util.Log.d(\"SLIDER_GAP\", \"showLabel=\" + showLabel"
-                  " + \" insetDp=\" + (inset / s.resources.displayMetrics.density)"
-                  " + \" Wdp=\" + (valueTextWidth / s.resources.displayMetrics.density)"
-                  " + \" deltaDp=\" + (delta / s.resources.displayMetrics.density)"
+                  " + \" insetDp=\" + (inset / density)"
+                  " + \" Wdp=\" + (valueTextWidth / density)"
+                  " + \" leftShiftDp=\" + LEFT_SHIFT_DP"
+                  " + \" gapTrimDp=\" + GAP_TRIM_DP"
                   " + \" mStartPx=\" + lp.marginStart"
                   " + \" mEndPx=\" + lp.marginEnd"
-                  " + \" gapRightDp=\" + ((lp.marginEnd + inset) / s.resources.displayMetrics.density))",
+                  " + \" gapRightDp=\" + ((lp.marginEnd + inset) / density))",
                   "tracking log",
               )
           else:
-              print("SKIP [tracking log already present]")
+              print("SKIP [tracking log present]")
 
           try:
               with io.open(path, "w", encoding="utf-8") as f:
@@ -112,22 +141,24 @@ jobs:
               print("ERROR writing file:", e, file=sys.stderr)
               sys.exit(1)
 
-          print("DONE: final alignment injected")
+          print("DONE: tuned alignment injected")
           PYSCRIPT
-          echo "inject_final.py written"
+          echo "inject_tuned.py written"
 
       - name: Run injection
-        run: python3 inject_final.py
+        run: python3 inject_tuned.py
 
       - name: Verify injection
         run: |
           set -euo pipefail
-          echo "=== delta=4 ==="
-          grep -n "TRACK_END_INSET_DP = 4f" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(not found)"
-          echo "=== FINAL marginEnd formula ==="
-          grep -n "if (showLabel) -(inset + delta) else (valueTextWidth - inset)" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(not found)"
-          echo "=== old formula gone (expect 0) ==="
-          grep -c "else -(inset + delta)" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0"
+          echo "=== three constants ==="
+          grep -nE "LEFT_SHIFT_DP|ASSEMBLY_SHIFT_DP|GAP_TRIM_DP" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt | head -5 || echo "(none)"
+          echo "=== value text marginEnd ==="
+          grep -n "ASSEMBLY_SHIFT_DP \* density" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(none)"
+          echo "=== FINAL marginEnd ==="
+          grep -n "valueTextWidth - gapTrimPx - inset" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(none)"
+          echo "=== no leftover old formula (expect 0) ==="
+          grep -cE "else -\(inset \+ delta\)|TRACK_END_INSET_DP" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0 (good)"
 
       - name: Build debug APK
         run: |
@@ -138,6 +169,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: vftest-align-final-v2
+          name: vftest-align-tuned
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
