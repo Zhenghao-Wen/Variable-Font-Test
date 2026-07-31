@@ -1,9 +1,6 @@
 name: Build Debug APK - RadioButton Color Probe
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - QwenMirror
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -73,8 +70,8 @@ jobs:
               "                for (i in 0 until lv.childCount) {\n"
               "                    val ctv = lv.getChildAt(i) as? CheckedTextView ?: continue\n"
               "                    val d: Drawable? = ctv.checkMarkDrawable\n"
-              "                    val tint = d?.let { androidx.core.graphics.drawable.DrawableCompat.getTintList(it) }\n"
-              "                    android.util.Log.d(\"RB_PROBE\", \"item[\" + i + \"] text='\" + ctv.text + \"' checked=\" + ctv.isChecked + \" checkMark=\" + (d?.javaClass?.simpleName ?: \"null\") + \" tint=\" + tint)\n"
+              "                    val tint: Any? = if (d == null) \"null\" else try { android.graphics.drawable.Drawable::class.java.getMethod(\"getTintList\").invoke(d) } catch (e: Throwable) { \"reflect-fail\" }\n"
+              "                    android.util.Log.d(\"RB_PROBE\", \"item[\" + i + \"] text='\" + ctv.text + \"' checked=\" + ctv.isChecked + \" checkMark=\" + (d?.javaClass?.name ?: \"null\") + \" tint=\" + tint)\n"
               "                }\n"
               "            } catch (e: Exception) {\n"
               "                android.util.Log.d(\"RB_PROBE\", \"probe error: \" + e.message)\n"
