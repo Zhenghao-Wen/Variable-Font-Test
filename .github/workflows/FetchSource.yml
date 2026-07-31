@@ -1,6 +1,9 @@
 name: Build Debug APK - RadioButton Color Probe
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - QwenMirror
 jobs:
   build:
     runs-on: ubuntu-latest
