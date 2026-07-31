@@ -30,7 +30,6 @@ jobs:
       - name: Repackage to com.vftest
         run: |
           set -euo pipefail
-          # 替换 applicationId，若失败则退出
           sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts || {
             echo "ERROR: applicationId replacement failed" >&2
             exit 1
@@ -45,7 +44,6 @@ jobs:
         run: |
           python3 << 'PYEOF'
           import sys
-          import re
 
           path = "app/src/main/java/moe/echo/variablefonttest_n/OptionsFragment.kt"
           try:
@@ -71,45 +69,48 @@ jobs:
                   )
 
           # ── 2. 注入 probe 方法（插在 onDisplayPreferenceDialog 之前）──
-          probe_method = '''
-    // ══ RB_PROBE：测量字族 dialog RadioButton 真实颜色（临时，测后移除）══
-    private fun probeRadioColor(dialog: androidx.appcompat.app.AlertDialog) {
-        fun resolveAttr(attr: Int): String {
-            val tv = android.util.TypedValue()
-            return if (requireContext().theme.resolveAttribute(attr, tv, true)) {
-                if (tv.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT)
-                    "#%08X".format(tv.data) else "resId=${tv.resourceId}"
-            } else "unresolved"
-        }
-        android.util.Log.d("RB_PROBE", "──── theme attrs ────")
-        android.util.Log.d("RB_PROBE", "colorPrimary=${resolveAttr(com.google.android.material.R.attr.colorPrimary)}")
-        android.util.Log.d("RB_PROBE", "colorSecondary=${resolveAttr(com.google.android.material.R.attr.colorSecondary)}")
-        android.util.Log.d("RB_PROBE", "colorControlActivated=${resolveAttr(androidx.appcompat.R.attr.colorControlActivated)}")
-        android.util.Log.d("RB_PROBE", "colorAccent=${resolveAttr(androidx.appcompat.R.attr.colorAccent)}")
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            try {
-                val lv = dialog.findViewById<android.widget.ListView>(android.R.id.list) ?: run {
-                    android.util.Log.d("RB_PROBE", "listview not found"); return@postDelayed
-                }
-                for (i in 0 until lv.childCount) {
-                    val ctv = lv.getChildAt(i) as? CheckedTextView ?: continue
-                    val dm = ctv.resources.displayMetrics
-                    val d: Drawable? = ctv.checkMarkDrawable
-                    android.util.Log.d("RB_PROBE", "item[$i] text='${ctv.text}' checked=${ctv.isChecked} " +
-                        "checkMark=${d?.javaClass?.simpleName} " +
-                        "tint=${d?.tintList} " +
-                        "w=${"%.1f".format((d?.intrinsicWidth ?: 0) / dm.density)}dp " +
-                        "h=${"%.1f".format((d?.intrinsicHeight ?: 0) / dm.density)}dp")
-                }
-            } catch (e: Exception) {
-                android.util.Log.d("RB_PROBE", "probe error: " + e.message)
+          probe_method = r'''
+        // ══ RB_PROBE：测量字族 dialog RadioButton 真实颜色（临时，测后移除）══
+        private fun probeRadioColor(dialog: androidx.appcompat.app.AlertDialog) {
+            fun resolveAttr(attr: Int): String {
+                val tv = android.util.TypedValue()
+                return if (requireContext().theme.resolveAttribute(attr, tv, true)) {
+                    if (tv.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT)
+                        "#%08X".format(tv.data) else "resId=${tv.resourceId}"
+                } else "unresolved"
             }
-        }, 700)
-    }
-    // ══ RB_PROBE end ══
+            android.util.Log.d("RB_PROBE", "──── theme attrs ────")
+            android.util.Log.d("RB_PROBE", "colorPrimary=${resolveAttr(com.google.android.material.R.attr.colorPrimary)}")
+            android.util.Log.d("RB_PROBE", "colorSecondary=${resolveAttr(com.google.android.material.R.attr.colorSecondary)}")
+            android.util.Log.d("RB_PROBE", "colorControlActivated=${resolveAttr(androidx.appcompat.R.attr.colorControlActivated)}")
+            android.util.Log.d("RB_PROBE", "colorAccent=${resolveAttr(androidx.appcompat.R.attr.colorAccent)}")
 
-'''
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    val lv = dialog.findViewById<android.widget.ListView>(android.R.id.list) ?: run {
+                        android.util.Log.d("RB_PROBE", "listview not found"); return@postDelayed
+                    }
+                    for (i in 0 until lv.childCount) {
+                        val ctv = lv.getChildAt(i) as? CheckedTextView ?: continue
+                        val dm = ctv.resources.displayMetrics
+                        val d: Drawable? = ctv.checkMarkDrawable
+                        android.util.Log.d("RB_PROBE", "item[$i] text='${ctv.text}' checked=${ctv.isChecked} " +
+                            "checkMark=${d?.javaClass?.simpleName} " +
+                            "tint=${d?.tintList} " +
+                            "w=${"%.1f".format((d?.intrinsicWidth ?: 0) / dm.density)}dp " +
+                            "h=${"%.1f".format((d?.intrinsicHeight ?: 0) / dm.density)}dp")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.d("RB_PROBE", "probe error: " + e.message)
+                }
+            }, 700)
+        }
+        // ══ RB_PROBE end ══
+
+        '''
+          # 注意：r'''...''' 原始字符串，但内部 `$` 在 Kotlin 中需要保留，而 Python 原始字符串不会解析 `$`
+          # 但我们想在 Kotlin 中使用 `$` 模板，所以不能转义；原始字符串不会干扰 `$`。
+
           anchor = "    override fun onDisplayPreferenceDialog(preference: Preference) {"
           if anchor not in src:
               print("ERROR: anchor (onDisplayPreferenceDialog) not found", file=sys.stderr)
@@ -122,7 +123,6 @@ jobs:
           if idx < 0:
               print("ERROR: showMd3ListDialog not found", file=sys.stderr)
               sys.exit(1)
-          # 在该方法范围内找第一个 ".show()"
           show_idx = src.find(".show()", idx)
           if show_idx < 0:
               print("ERROR: .show() in showMd3ListDialog not found", file=sys.stderr)
@@ -137,9 +137,8 @@ jobs:
               sys.exit(1)
 
           print("OK: probe injected")
-          # 校验
           for kw in ["probeRadioColor", "RB_PROBE", ".also { probeRadioColor(it) }"]:
-              print("contains '%s': %s" % (kw, kw in src))
+              print(f"contains '{kw}': {kw in src}")
           PYEOF
 
       - name: Verify injection
