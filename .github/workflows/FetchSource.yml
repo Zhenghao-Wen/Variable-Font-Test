@@ -1,4 +1,4 @@
-name: Debug Build - Slider Right-End Gap Fix + Tracking
+name: Debug Build - Slider Right-End Gap Fix v2
 
 on:
   workflow_dispatch:
@@ -39,7 +39,6 @@ jobs:
             echo "ERROR: android:label replacement failed" >&2
             exit 1
           }
-          grep -nE "applicationId" app/build.gradle.kts
 
       - name: Write injection script
         run: |
@@ -50,50 +49,44 @@ jobs:
           try:
               with io.open(path, "r", encoding="utf-8") as f:
                   src = f.read()
-          except FileNotFoundError:
-              print("ERROR: SliderPreference.kt not found", file=sys.stderr)
+          except IOError as e:
+              print("ERROR reading file:", e, file=sys.stderr)
               sys.exit(1)
 
           def repl(old, new, label):
               global src
               if old not in src:
-                  print("ERROR [" + label + "] pattern not found: " + repr(old[:70]))
+                  print("ERROR [" + label + "] not found: " + repr(old[:80]), file=sys.stderr)
                   sys.exit(1)
               src = src.replace(old, new, 1)
               print("OK [" + label + "]")
 
-          # (1) 在 vt?.let 前声明 valueTextWidth（捕获数值区宽度 W）
+          # (1) 在 val delta 之后，用类属性 valueText 现算数值区宽度 W（避免局部变量跨 lambda 作用域问题）
           repl(
-              "        vt?.let {",
-              "        var valueTextWidth = 0\n        vt?.let {",
-              "declare valueTextWidth",
+              "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()",
+              "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()\n"
+              "                val valueTextWidth = valueText?.let { tv -> (tv.paint.measureText(\"1000\") + (tv.paddingStart + tv.paddingEnd) + 2 * s.resources.displayMetrics.density).toInt() } ?: 0",
+              "compute W via valueText",
           )
 
-          # (2) 在宽度赋值处用 also 把 W 存进 valueTextWidth
+          # (2) 核心修正：非 wght 右端 marginEnd 取正（让出 W+δ 空隙），而非负值（向右顶）
           repl(
-              'width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()',
-              'width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt().also { valueTextWidth = it }',
-              "capture W",
+              "lp.marginEnd = if (showLabel) -inset else -(inset + delta)",
+              "lp.marginEnd = if (showLabel) -inset else (valueTextWidth + delta - inset)",
+              "FIX marginEnd sign",
           )
 
-          # (3) 核心修正：非 wght 右端 marginEnd 由"负(向右顶)"改为"正(让出 W+δ 空隙)"
+          # (3) 跟踪日志
           repl(
-              'lp.marginEnd = if (showLabel) -inset else -(inset + delta)',
-              'lp.marginEnd = if (showLabel) -inset else (valueTextWidth + delta - inset)',
-              "FIX marginEnd",
-          )
-
-          # (4) 跟踪日志（在 s.layoutParams = lp 后）
-          repl(
-              '                    s.layoutParams = lp',
-              '                    s.layoutParams = lp\n'
-              '                    android.util.Log.d("SLIDER_GAP", "showLabel=" + showLabel'
-              ' + " insetDp=" + (inset / s.resources.displayMetrics.density)'
-              ' + " Wdp=" + (valueTextWidth / s.resources.displayMetrics.density)'
-              ' + " deltaDp=" + (delta / s.resources.displayMetrics.density)'
-              ' + " mStartPx=" + lp.marginStart'
-              ' + " mEndPx=" + lp.marginEnd'
-              ' + " gapRightDp=" + ((lp.marginEnd + inset) / s.resources.displayMetrics.density))',
+              "                    s.layoutParams = lp",
+              "                    s.layoutParams = lp\n"
+              "                    android.util.Log.d(\"SLIDER_GAP\", \"showLabel=\" + showLabel"
+              " + \" insetDp=\" + (inset / s.resources.displayMetrics.density)"
+              " + \" Wdp=\" + (valueTextWidth / s.resources.displayMetrics.density)"
+              " + \" deltaDp=\" + (delta / s.resources.displayMetrics.density)"
+              " + \" mStartPx=\" + lp.marginStart"
+              " + \" mEndPx=\" + lp.marginEnd"
+              " + \" gapRightDp=\" + ((lp.marginEnd + inset) / s.resources.displayMetrics.density))",
               "tracking log",
           )
 
@@ -101,10 +94,10 @@ jobs:
               with io.open(path, "w", encoding="utf-8") as f:
                   f.write(src)
           except IOError as e:
-              print(f"ERROR writing file: {e}", file=sys.stderr)
+              print("ERROR writing file:", e, file=sys.stderr)
               sys.exit(1)
 
-          print("DONE: gap fix + tracking injected")
+          print("DONE: gap fix v2 injected")
           PYSCRIPT
           echo "inject_gap_fix.py written"
 
@@ -113,12 +106,15 @@ jobs:
 
       - name: Verify injection
         run: |
-          echo "=== corrected formula present ==="
+          set -euo pipefail
+          echo "=== W computed inside compensation block ==="
+          grep -n "val valueTextWidth = valueText" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(not found)"
+          echo "=== corrected marginEnd formula ==="
           grep -n "valueTextWidth + delta - inset" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(not found)"
-          echo "=== tracking tag present ==="
-          grep -c "SLIDER_GAP" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0"
-          echo "=== old buggy formula gone ==="
-          grep -c "else -(inset + delta)" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0 (good)"
+          echo "=== old buggy formula gone (expect 0) ==="
+          grep -c "else -(inset + delta)" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0"
+          echo "=== no stray local var declaration (expect 0) ==="
+          grep -c "var valueTextWidth = 0" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0"
 
       - name: Build debug APK
         run: |
@@ -129,6 +125,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: vftest-gap-fix-debug
+          name: vftest-gap-fix-v2
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
