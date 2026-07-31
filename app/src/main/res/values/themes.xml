@@ -12,6 +12,7 @@
         <item name="android:alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.App.MaterialAlertDialog</item>
 
         <!-- ══ 修复旧版 SeekBar 饱和度 ══ 强制 SeekBar 的 progressTint/thumbTint 解析到 ?attr/colorPrimary
              （暗色动态取色 = system_accent1_200），而非被 PreferenceThemeOverlay 降级到 colorSecondary（system_accent2_200） -->
@@ -22,5 +23,12 @@
     <style name="Widget.App.SeekBar.MD3Tint" parent="Widget.AppCompat.SeekBar">
         <item name="android:progressTint">?attr/colorPrimary</item>
         <item name="android:thumbTint">?attr/colorPrimary</item>
+    </style>
+
+    <!-- MD3 dialog 选中态（RadioButton/CheckBox）改用 Primary；
+         库默认 colorControlActivated=colorSecondary，此处纠正 -->
+    <style name="ThemeOverlay.App.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorControlActivated">?attr/colorPrimary</item>
+        <item name="colorAccent">?attr/colorPrimary</item>
     </style>
 </resources>

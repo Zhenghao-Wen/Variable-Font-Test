@@ -12,6 +12,7 @@
         <item name="android:alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="alertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
         <item name="dialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.App.MaterialAlertDialog</item>
 
         <!-- 修复旧版 SeekBar 饱和度：强制 progressTint/thumbTint 使用 colorPrimary -->
         <item name="android:seekBarStyle">@style/Widget.App.SeekBar.MD3Tint</item>
