@@ -1,4 +1,4 @@
-name: Build Debug Measure APK v2 (thumbRadius, fixed)
+name: Investigate Preference Divider Color
 
 on:
   workflow_dispatch:
@@ -7,136 +7,147 @@ on:
       - QwenMirror
 
 jobs:
-  build:
+  investigate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
-      - name: Checkout dev
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 1
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Repackage to com.vftest (applicationId only)
+      - name: Build investigation report
+        shell: bash
         run: |
-          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
-          grep -nE "applicationId|namespace" app/build.gradle.kts
+          set -euo pipefail
+          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
 
-      - name: Set distinct debug label
-        run: |
-          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
-          grep -n "android:label" app/src/main/AndroidManifest.xml
+          R="divider_investigation.txt"
+          RES="app/src/main/res"
+          JAVA="app/src/main/java"
 
-      - name: Inject MEASURE instrumentation (reflection via superclass chain)
-        run: |
-          python3 << 'PYEOF'
-          import io
-
-          def inject(path, anchor, block):
-              with io.open(path, "r", encoding="utf-8") as f:
-                  lines = f.readlines()
-              idx = None
-              for i, line in enumerate(lines):
-                  if anchor in line:
-                      idx = i
-                      break
-              if idx is None:
-                  raise SystemExit("ERROR: anchor '%s' not found in %s" % (anchor, path))
-              lines.insert(idx + 1, block)
-              with io.open(path, "w", encoding="utf-8") as f:
-                  f.writelines(lines)
-              print("OK: injected after line %d in %s" % (idx + 1, path))
-
-          slider_block = '''        // == MEASURE v2 (CI injected, reflection only) ==
-          run {
-              val density = s.resources.displayMetrics.density
-              vt?.let { tv ->
-                  tv.fontFeatureSettings = "tnum"
-                  android.util.Log.d("MEASURE", "[MD3] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, '0'=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
-                  tv.post {
-                      android.util.Log.d("MEASURE", "[MD3] slider_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp")
-                  }
-              }
-              // BaseSlider 为 package-private，不可直接引用 ::class；改从 Slider 沿继承链向上遍历
-              var cls: Class<*>? = s.javaClass
-              while (cls != null && cls.name != "java.lang.Object") {
-                  try {
-                      android.util.Log.d("MEASURE", "[MD3] " + cls.simpleName + " fields=" + cls.declaredFields.joinToString(",") { it.name })
-                  } catch (e: Exception) {
-                      android.util.Log.d("MEASURE", "[MD3] " + cls.simpleName + " fields reflect fail: " + e.message)
-                  }
-                  cls = cls.superclass
-              }
-              for (fname in listOf("thumbRadius", "trackSidePadding", "labelPadding", "trackHeight", "widgetLabelPadding")) {
-                  var c: Class<*>? = s.javaClass
-                  var found = false
-                  while (c != null && !found) {
-                      try {
-                          val ff = c.getDeclaredField(fname)
-                          ff.isAccessible = true
-                          android.util.Log.d("MEASURE", "[MD3] " + fname + "=" + ff.getInt(s) + "px=" + "%.2f".format(ff.getInt(s) / density) + "dp (in " + c.simpleName + ")")
-                          found = true
-                      } catch (e: Exception) {
-                          c = c.superclass
-                      }
-                  }
-              }
+          # 安全读取文件（若不存在则输出提示）
+          safe_cat() {
+            if [ -f "$1" ]; then
+              cat "$1"
+            else
+              echo "[FILE NOT FOUND] $1"
+            fi
           }
-          // == MEASURE v2 end ==
-          '''
 
-          seekbar_block = '''        // == MEASURE v2 (CI injected) ==
-          run {
-              val density = seekBar.resources.displayMetrics.density
-              (view.findViewById(androidx.preference.R.id.seekbar_value) as? android.widget.TextView)?.let { tv ->
-                  tv.fontFeatureSettings = "tnum"
-                  android.util.Log.d("MEASURE", "[MD2] '1000'(tnum)width=${"%.2f".format(tv.paint.measureText("1000") / density)}dp, '0'=${"%.2f".format(tv.paint.measureText("0") / density)}dp")
-                  tv.post {
-                      android.util.Log.d("MEASURE", "[MD2] seekbar_value viewWidth=${"%.2f".format(tv.width / density)}dp, paddingH=${"%.2f".format((tv.paddingStart + tv.paddingEnd) / density)}dp")
-                  }
-              }
-          }
-          // == MEASURE v2 end ==
-          '''
+          {
+            echo "# Preference Divider Color Investigation"
+            echo "# Branch: dev"
+            echo "# Commit: $(git rev-parse HEAD)"
+            echo "# Date: $(date -u)"
+            echo ""
 
-          inject(
-              "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt",
-              "findViewById(R.id.slider_value)",
-              slider_block,
-          )
-          inject(
-              "app/src/main/java/moe/echo/variablefonttest_n/SeekBarPreference.kt",
-              "thumbTintList = primaryColorStateList",
-              seekbar_block,
-          )
-          PYEOF
+            # ═══ A. 主题链路（Divider 颜色的最终来源）═══
+            echo "## [A1] values/themes.xml"
+            echo '```xml'
+            safe_cat "$RES/values/themes.xml"
+            echo '```'
+            echo ""
+            echo "## [A2] values-night/themes.xml"
+            echo '```xml'
+            safe_cat "$RES/values-night/themes.xml"
+            echo '```'
+            echo ""
+            echo "## [A3] 是否存在 values-v31 / values-night-v31 主题"
+            echo '```'
+            ls -la "$RES/values-v31/" 2>/dev/null || echo "(no values-v31 dir)"
+            ls -la "$RES/values-night-v31/" 2>/dev/null || echo "(no values-night-v31 dir)"
+            echo '```'
+            echo ""
 
-      - name: Verify injection
-        run: |
-          echo "=== SliderPreference MEASURE count ==="
-          grep -c "MEASURE" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
-          echo "=== no direct BaseSlider::class reference (should be 0) ==="
-          grep -c "BaseSlider::class" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0 (good)"
+            # ═══ B. 动态取色入口 ═══
+            echo "## [B] MainActivity.kt（DynamicColors 应用情况）"
+            echo '```kotlin'
+            safe_cat "$JAVA/moe/echo/variablefonttest_n/MainActivity.kt"
+            echo '```'
+            echo ""
 
-      - name: Build debug APK
-        run: |
-          chmod +x gradlew
-          ./gradlew app:assembleDebug --no-daemon
+            # ═══ C. 全局检索 Divider / 取色关键字 ═══
+            echo "## [C1] res/ 中 divider / colorOutline / listDivider 命中"
+            echo '```'
+            grep -rniE "divider|colorOutline|listDivider" "$RES" 2>/dev/null || echo "(no match in res/)"
+            echo '```'
+            echo ""
+            echo "## [C2] java/ 中 Divider / ItemDecoration / colorOutline 命中"
+            echo '```'
+            grep -rniE "divider|ItemDecoration|colorOutline|setDivider" "$JAVA" 2>/dev/null || echo "(no match in java/)"
+            echo '```'
+            echo ""
 
-      - name: Upload debug APK
+            # ═══ D. OptionsFragment 中 RecyclerView / Divider 相关片段 ═══
+            echo "## [D] OptionsFragment.kt 中 RecyclerView/listView/Divider 相关行"
+            echo '```kotlin'
+            grep -nE "RecyclerView|listView|Divider|ItemDecoration|onCreateRecyclerView|clipToPadding" \
+              "$JAVA/moe/echo/variablefonttest_n/OptionsFragment.kt" 2>/dev/null || echo "(no match)"
+            echo '```'
+            echo ""
+
+            # ═══ E. 两个自定义 Preference 的 divider 相关代码 ═══
+            echo "## [E1] SliderPreference.kt（divider 相关）"
+            echo '```kotlin'
+            grep -nE "Divider|divider" "$JAVA/moe/echo/variablefonttest_n/SliderPreference.kt" 2>/dev/null || echo "(no divider code)"
+            echo '```'
+            echo ""
+            echo "## [E2] SeekBarPreference.kt（divider 相关）"
+            echo '```kotlin'
+            grep -nE "Divider|divider" "$JAVA/moe/echo/variablefonttest_n/SeekBarPreference.kt" 2>/dev/null || echo "(no divider code)"
+            echo '```'
+            echo ""
+
+            # ═══ F. 库版本（决定 PreferenceThemeOverlay 行为）═══
+            echo "## [F1] app/build.gradle.kts"
+            echo '```kotlin'
+            safe_cat app/build.gradle.kts
+            echo '```'
+            echo ""
+            echo "## [F2] gradle/libs.versions.toml"
+            echo '```toml'
+            safe_cat gradle/libs.versions.toml
+            echo '```'
+            echo ""
+
+            # ═══ G. 颜色资源中是否定义 outline / divider 色 ═══
+            echo "## [G] 各 colors.xml 中 outline/divider 相关定义"
+            echo '```'
+            for f in $(find "$RES" -name "colors.xml" | sort); do
+              echo "--- $f ---"
+              grep -niE "outline|divider" "$f" 2>/dev/null || echo "(none)"
+            done
+            echo '```'
+            echo ""
+
+            # ═══ H. Switch 控件布局（MD3 化参考）═══
+            echo "## [H1] preference_widget_switch.xml"
+            echo '```xml'
+            safe_cat "$RES/layout/preference_widget_switch.xml"
+            echo '```'
+            echo ""
+            echo "## [H2] preference_widget_switch_compat.xml"
+            echo '```xml'
+            safe_cat "$RES/layout/preference_widget_switch_compat.xml"
+            echo '```'
+            echo ""
+
+            # ═══ I. Manifest（主题挂载确认）═══
+            echo "## [I] AndroidManifest.xml"
+            echo '```xml'
+            safe_cat app/src/main/AndroidManifest.xml
+            echo '```'
+          } > "$R"
+
+          SIZE=$(wc -c < "$R")
+          echo "Report size: $SIZE bytes"
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: vftest-debug-measure-v2
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: divider-investigation
+          path: divider_investigation.txt
           retention-days: 14
