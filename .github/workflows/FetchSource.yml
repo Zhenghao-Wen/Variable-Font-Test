@@ -1,4 +1,4 @@
-name: Debug Build - Slider Alignment Final (delta=4dp)
+name: Debug Build - Slider Alignment Final (delta=4dp) v2
 
 on:
   workflow_dispatch:
@@ -56,19 +56,19 @@ jobs:
           def repl(old, new, label):
               global src
               if old not in src:
-                  print("ERROR [" + label + "] not found: " + repr(old[:80]), file=sys.stderr)
+                  print("ERROR [" + label + "] not found: " + repr(old[:90]), file=sys.stderr)
                   sys.exit(1)
               src = src.replace(old, new, 1)
               print("OK [" + label + "]")
 
-          # (1) δ 由 1dp 改为 4dp
+          # (1) δ: 1dp -> 4dp
           repl(
               "const val TRACK_END_INSET_DP = 1f",
               "const val TRACK_END_INSET_DP = 4f",
               "delta 1->4",
           )
 
-          # (2) 确保补偿块内有 valueTextWidth（若上一版已注入则跳过）
+          # (2) 补偿块内现算数值区宽度 W（dev 上没有，需注入；幂等）
           if "val valueTextWidth = valueText?.let" not in src:
               repl(
                   "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()",
@@ -79,25 +79,27 @@ jobs:
           else:
               print("SKIP [compute W already present]")
 
-          # (3) marginEnd 定稿：wght 也加 δ（连同数值区左移）；非 wght 去掉 +δ（回到顶满前观感）
+          # (3) ★关键修正★ 匹配 dev 上的真实旧公式，替换为定稿公式
+          #     旧(dev): if (showLabel) -inset else -(inset + delta)
+          #     新(定稿): if (showLabel) -(inset + delta) else (valueTextWidth - inset)
           repl(
-              "lp.marginEnd = if (showLabel) -inset else (valueTextWidth + delta - inset)",
+              "lp.marginEnd = if (showLabel) -inset else -(inset + delta)",
               "lp.marginEnd = if (showLabel) -(inset + delta) else (valueTextWidth - inset)",
               "FINAL marginEnd",
           )
 
-          # (4) 跟踪日志（若已存在则跳过）
+          # (4) 跟踪日志（幂等）
           if "SLIDER_GAP" not in src:
               repl(
                   "                    s.layoutParams = lp",
                   "                    s.layoutParams = lp\n"
                   "                    android.util.Log.d(\"SLIDER_GAP\", \"showLabel=\" + showLabel"
-                  + " \" insetDp=\" + (inset / s.resources.displayMetrics.density)"
-                  + " \" Wdp=\" + (valueTextWidth / s.resources.displayMetrics.density)"
-                  + " \" deltaDp=\" + (delta / s.resources.displayMetrics.density)"
-                  + " \" mStartPx=\" + lp.marginStart"
-                  + " \" mEndPx=\" + lp.marginEnd"
-                  + " \" gapRightDp=\" + ((lp.marginEnd + inset) / s.resources.displayMetrics.density))",
+                  " + \" insetDp=\" + (inset / s.resources.displayMetrics.density)"
+                  " + \" Wdp=\" + (valueTextWidth / s.resources.displayMetrics.density)"
+                  " + \" deltaDp=\" + (delta / s.resources.displayMetrics.density)"
+                  " + \" mStartPx=\" + lp.marginStart"
+                  " + \" mEndPx=\" + lp.marginEnd"
+                  " + \" gapRightDp=\" + ((lp.marginEnd + inset) / s.resources.displayMetrics.density))",
                   "tracking log",
               )
           else:
@@ -125,7 +127,7 @@ jobs:
           echo "=== FINAL marginEnd formula ==="
           grep -n "if (showLabel) -(inset + delta) else (valueTextWidth - inset)" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(not found)"
           echo "=== old formula gone (expect 0) ==="
-          grep -c "valueTextWidth + delta - inset" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0"
+          grep -c "else -(inset + delta)" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0"
 
       - name: Build debug APK
         run: |
@@ -136,6 +138,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: vftest-align-final
+          name: vftest-align-final-v2
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
