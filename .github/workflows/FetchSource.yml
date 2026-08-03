@@ -66,7 +66,7 @@ jobs:
               r"const val TRACK_END_INSET_DP = [0-9.]+f",
               "const val LEFT_SHIFT_DP = 6f\n"
               "        const val ASSEMBLY_SHIFT_DP = 8f\n"
-              "        const val GAP_TRIM_DP = 0f",
+              "        const val GAP_TRIM_DP = -8f",
               src, count=1)
           if "LEFT_SHIFT_DP" not in src:
               print("ERROR [constants] replace failed", file=sys.stderr)
