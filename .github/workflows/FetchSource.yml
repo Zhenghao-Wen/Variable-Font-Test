@@ -1,4 +1,4 @@
-name: Debug Build - Slider Alignment (8dp)
+name: Debug Build - Slider Alignment (16dp/6dp)
 
 on:
   workflow_dispatch:
@@ -28,15 +28,8 @@ jobs:
 
       - name: Repackage to com.vftest
         run: |
-          set -euo pipefail
-          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts || {
-            echo "ERROR: applicationId replacement failed" >&2
-            exit 1
-          }
-          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml || {
-            echo "ERROR: android:label replacement failed" >&2
-            exit 1
-          }
+          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
+          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
 
       - name: Write injection script
         run: |
@@ -44,31 +37,27 @@ jobs:
           import io, sys
 
           path = "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt"
-          try:
-              with io.open(path, "r", encoding="utf-8") as f:
-                  src = f.read()
-          except IOError as e:
-              print("ERROR reading file:", e, file=sys.stderr)
-              sys.exit(1)
+          with io.open(path, "r", encoding="utf-8") as f:
+              src = f.read()
 
           def repl(old, new, label):
               global src
               if old not in src:
-                  print("ERROR [" + label + "] not found: " + repr(old[:80]), file=sys.stderr)
+                  print("ERROR [" + label + "] not found: " + repr(old[:80]))
                   sys.exit(1)
               src = src.replace(old, new, 1)
               print("OK [" + label + "]")
 
-          # (1) 常量：换成三个语义独立的位移量
+          # (1) 常量：三个位移量（整体替换为目标值）
           repl(
               "const val TRACK_END_INSET_DP = 1f",
-              "const val LEFT_SHIFT_DP = 4f\n"
-              "        const val WGHT_ASSEMBLY_SHIFT_DP = 8f\n"
-              "        const val OTHER_RIGHT_SHIFT_DP = 8f",
+              "const val LEFT_SHIFT_DP = 6f\n"
+              "        const val WGHT_ASSEMBLY_SHIFT_DP = 16f\n"
+              "        const val OTHER_RIGHT_SHIFT_DP = 16f",
               "constants",
           )
 
-          # (2) wght 数值文字 marginEnd：整组左移（在 .apply{} 内，this=layoutParams）
+          # (2) wght 数值文字 marginEnd：整组左移 16dp
           repl(
               'width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()',
               'width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()\n'
@@ -76,7 +65,7 @@ jobs:
               "value text marginEnd",
           )
 
-          # (3) 补偿块：density + 位移 + valueTextWidth
+          # (3) 补偿块变量
           repl(
               "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()",
               "val density = s.resources.displayMetrics.density\n"
@@ -86,21 +75,21 @@ jobs:
               "compensation vars",
           )
 
-          # (4) marginStart：左端保持 4dp 右移
+          # (4) marginStart：左端右移 6dp
           repl(
               "lp.marginStart = -(inset - delta)",
               "lp.marginStart = -(inset - leftShiftPx)",
               "marginStart",
           )
 
-          # (5) marginEnd：wght=-inset(贴合不侵入)；非wght=留距W-8dp
+          # (5) marginEnd：wght=-inset(贴合)；非wght=留距 W-16dp
           repl(
               "lp.marginEnd = if (showLabel) -inset else -(inset + delta)",
               "lp.marginEnd = if (showLabel) -inset else (valueTextWidth - otherRightShiftPx - inset)",
               "marginEnd",
           )
 
-          # (6) 轻量日志（便于核对，可删）
+          # (6) 轻量日志
           repl(
               "s.layoutParams = lp",
               "s.layoutParams = lp\n"
@@ -109,13 +98,8 @@ jobs:
               "log",
           )
 
-          try:
-              with io.open(path, "w", encoding="utf-8") as f:
-                  f.write(src)
-          except IOError as e:
-              print("ERROR writing file:", e, file=sys.stderr)
-              sys.exit(1)
-
+          with io.open(path, "w", encoding="utf-8") as f:
+              f.write(src)
           print("DONE: alignment injected")
           PYSCRIPT
 
@@ -124,29 +108,19 @@ jobs:
 
       - name: Verify
         run: |
-          set -euo pipefail
           echo "=== new constants ==="
-          grep -nE "LEFT_SHIFT_DP|WGHT_ASSEMBLY_SHIFT_DP|OTHER_RIGHT_SHIFT_DP" \
-            app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt | head -6 || echo "(none)"
-          echo "=== value text marginEnd ==="
-          grep -n "WGHT_ASSEMBLY_SHIFT_DP \* density" \
-            app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(none)"
+          grep -nE "LEFT_SHIFT_DP|WGHT_ASSEMBLY_SHIFT_DP|OTHER_RIGHT_SHIFT_DP" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt | head -6
           echo "=== final marginEnd ==="
-          grep -n "valueTextWidth - otherRightShiftPx - inset" \
-            app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "(none)"
-          echo "=== no leftover TRACK_END_INSET_DP / delta (expect 0) ==="
-          grep -cE "TRACK_END_INSET_DP|- \(inset \+ delta\)" \
-            app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt || echo "0 (good)"
+          grep -n "valueTextWidth - otherRightShiftPx - inset" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
 
       - name: Build debug APK
         run: |
-          set -euo pipefail
           chmod +x gradlew
           ./gradlew app:assembleDebug --no-daemon
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: vftest-align-8dp
+          name: vftest-align-16dp
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
