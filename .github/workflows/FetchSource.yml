@@ -64,9 +64,9 @@ jobs:
           # (1) 常量：单一 δ 换成三个语义常量（兼容 dev 上仍是 1f 或已被改过的情况）
           src = re.sub(
               r"const val TRACK_END_INSET_DP = [0-9.]+f",
-              "const val LEFT_SHIFT_DP = 5f\n"
+              "const val LEFT_SHIFT_DP = 6f\n"
               "        const val ASSEMBLY_SHIFT_DP = 8f\n"
-              "        const val GAP_TRIM_DP = 4f",
+              "        const val GAP_TRIM_DP = 0f",
               src, count=1)
           if "LEFT_SHIFT_DP" not in src:
               print("ERROR [constants] replace failed", file=sys.stderr)
