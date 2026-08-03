@@ -43,19 +43,29 @@ class SeekBarPreference @JvmOverloads constructor(
         seekBar.progressTintList = primaryColorStateList
         seekBar.thumbTintList = primaryColorStateList
 
-        // ── 修复拖动抖动 + 等宽数字（与 MD3 slider_value 对齐）──
-        // 库内置 seekbar_value 为 wrap_content：非等宽数字字体下数值变化（400→1000）
-        // 会改变其宽度导致 SeekBar 可用宽度突变、拇指抖动。
-        // 固定 48dp（含 8dp 左间隔 + 40dp 文本区），左对齐使首位数字贴近滑块，tnum 等宽数字。
-        (view.findViewById(androidx.preference.R.id.seekbar_value) as? TextView)?.let { valueView ->
-            val density = valueView.resources.displayMetrics.density
-            valueView.layoutParams = valueView.layoutParams.apply {
-                width = (48 * density).toInt()
+        // ── wght 数值显示区：与 MD3 slider_value 统一样式（外观/颜色/等宽/自适应宽度/居中）──
+        // seekbar_value 来自库布局不可直接改 XML，故在 super.onBindViewHolder 之后程序化统一，
+        // 使其与 MD3 slider_value 的 XML 定义（textAppearanceListItemSecondary + textColorSecondary）同源。
+        (view.findViewById(androidx.preference.R.id.seekbar_value) as? android.widget.TextView)?.let { tv ->
+            // 统一文字外观与颜色（解析主题属性）
+            val ta = tv.context.obtainStyledAttributes(
+                intArrayOf(android.R.attr.textAppearanceListItemSecondary, android.R.attr.textColorSecondary)
+            )
+            val appearanceRes = ta.getResourceId(0, 0)
+            val textColor = ta.getColor(1, tv.currentTextColor)
+            ta.recycle()
+            if (appearanceRes != 0) {
+                androidx.core.widget.TextViewCompat.setTextAppearance(tv, appearanceRes)
             }
-            valueView.setPaddingRelative((8 * density).toInt(), valueView.paddingTop, 0, valueView.paddingBottom)
-            valueView.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            valueView.maxLines = 1
-            valueView.fontFeatureSettings = "tnum"
+            tv.setTextColor(textColor)
+            // 等宽数字 + 自适应宽度（完整容纳 1000）+ 居中
+            tv.fontFeatureSettings = "tnum"
+            val density = tv.resources.displayMetrics.density
+            val paddingH = (tv.paddingStart + tv.paddingEnd).toFloat()
+            tv.layoutParams = tv.layoutParams.apply {
+                width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()
+            }
+            tv.gravity = Gravity.CENTER
         }
     }
 }
