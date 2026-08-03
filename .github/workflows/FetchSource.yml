@@ -61,19 +61,19 @@ jobs:
               src = src.replace(old, new, 1)
               print("OK [" + label + "]")
 
-          # (1) 常量：单一 δ 换成三个语义常量（兼容 dev 上仍是 1f 或已被改过的情况）
+          # (1) 常量：单一 δ 换成三个语义常量
           src = re.sub(
               r"const val TRACK_END_INSET_DP = [0-9.]+f",
               "const val LEFT_SHIFT_DP = 6f\n"
-              "        const val ASSEMBLY_SHIFT_DP = 8f\n"
-              "        const val GAP_TRIM_DP = -8f",
+              "        const val ASSEMBLY_SHIFT_DP = 4f\n"
+              "        const val GAP_TRIM_DP = 4f",
               src, count=1)
           if "LEFT_SHIFT_DP" not in src:
               print("ERROR [constants] replace failed", file=sys.stderr)
               sys.exit(1)
           print("OK [constants]")
 
-          # (2) 数值区 TextView：wght 时加 marginEnd 把整组左移（治"偏右"）
+          # (2) 数值区 TextView：wght 时加 marginEnd 把整组左移
           repl(
               "width = (tv.paint.measureText(\"1000\") + paddingH + 2 * density).toInt()",
               "width = (tv.paint.measureText(\"1000\") + paddingH + 2 * density).toInt()\n"
@@ -99,7 +99,6 @@ jobs:
           )
 
           # (5) marginEnd 定稿：wght=-inset(不顶入)；非wght=(W-trim)-inset
-          #     兼容 dev 原始公式 与 已被改过的中间态
           for candidate in [
               "lp.marginEnd = if (showLabel) -inset else -(inset + delta)",
               "lp.marginEnd = if (showLabel) -(inset + delta) else (valueTextWidth - inset)",
