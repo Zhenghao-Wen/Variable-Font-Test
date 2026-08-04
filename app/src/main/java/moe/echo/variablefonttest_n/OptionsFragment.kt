@@ -254,6 +254,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             // ── 如果 MD3 Slider 已开启且当前添加的是拖动条，替换为 SliderPreference ──
             val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(context)
                 .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+            val stepFloat = (preference as SeekBarPreference).seekBarIncrement.toFloat().coerceAtLeast(0.001f)
             val finalPreference: Preference = if (
                 useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR
@@ -261,16 +262,18 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 SliderPreference(context).apply {
                     key = tagName
                     title = tagName
-                    summary = tagName
-                    valueFrom = (preference as SeekBarPreference).min.toFloat()
+                    valueFrom = preference.min.toFloat()
                     valueTo = preference.max.toFloat()
-                    stepSize = preference.seekBarIncrement.toFloat().coerceAtLeast(1f)
+                    stepSize = stepFloat
                     sliderValue = preference.value.toFloat()
                     showLabel = false
                     floatingLabelEnabled = PreferenceManager.getDefaultSharedPreferences(context)
                         .getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
                     valueScale = 1f
                     valueOffset = 0f
+                    // 判断步进值是否为整数
+                    val isIntegerStep = (stepFloat == stepFloat.toLong().toFloat())
+                    decimalPlaces = if (isIntegerStep) 0 else 1  // ← 根据步进值决定
                     isPersistent = false
                     setOnPreferenceChangeListener { _, newValue ->
                         val value = newValue.toString().toFloatOrNull()
@@ -585,18 +588,19 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         val step = meta.optInt("step", 1)
                         val savedValue = fontVariationSettings[key]?.toFloatOrNull()
                         if (useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            val isIntegerStep = (step.toFloat() == step.toFloat().toLong().toFloat())
                             SliderPreference(requireContext()).apply {
                                 this.key = key
                                 title = key
-                                summary = key
                                 valueFrom = min.toFloat()
                                 valueTo = max.toFloat()
-                                stepSize = step.toFloat().coerceAtLeast(1f)
+                                stepSize = step.toFloat().coerceAtLeast(0.001f)
                                 sliderValue = savedValue ?: min.toFloat()
                                 showLabel = false
                                 floatingLabelEnabled = useMd3Slider && showFloatingLabel
                                 valueScale = 1f
                                 valueOffset = 0f
+                                decimalPlaces = if (isIntegerStep) 0 else 1  // ← 根据步进值决定
                                 isPersistent = false
                                 setOnPreferenceChangeListener { _, newValue ->
                                     val v = newValue.toString().toFloatOrNull()
@@ -890,6 +894,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         showLabel = false,
                         valueScale = 0.1f,
                         valueOffset = 0f,
+                        decimalPlaces = 1,  // ← 新增
                         handler = italHandler
                     ),
                     SliderReplacement(
@@ -903,6 +908,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         showLabel = false,
                         valueScale = 0.1f,
                         valueOffset = 0f,
+                        decimalPlaces = 1,  // ← 新增
                         handler = opszHandler
                     ),
                     SliderReplacement(
@@ -916,6 +922,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         showLabel = false,
                         valueScale = 1f,
                         valueOffset = -90f,
+                        decimalPlaces = 0,  // ← 新增
                         handler = slntHandler
                     ),
                     SliderReplacement(
@@ -929,6 +936,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         showLabel = false,
                         valueScale = 0.1f,
                         valueOffset = 0f,
+                        decimalPlaces = 1,  // ← 新增
                         handler = wdthHandler
                     ),
                     SliderReplacement(
@@ -942,6 +950,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         showLabel = true,
                         valueScale = 1f,
                         valueOffset = 0f,
+                        decimalPlaces = 0,  // ← 新增
                         handler = wghtHandler
                     )
                 )
@@ -988,6 +997,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             floatingLabelEnabled = showFloatingLabel
                             valueScale = r.valueScale
                             valueOffset = r.valueOffset
+                            decimalPlaces = r.decimalPlaces  // ← 新增
                             isPersistent = false
                             setOnPreferenceChangeListener { _, newValue -> r.handler(newValue) }
                             order = orderIdx++
@@ -1307,5 +1317,6 @@ private data class SliderReplacement(
     val showLabel: Boolean,
     val valueScale: Float,
     val valueOffset: Float,
+    val decimalPlaces: Int,  // ← 新增
     val handler: (Any?) -> Boolean
 )

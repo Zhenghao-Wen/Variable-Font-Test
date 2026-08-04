@@ -31,6 +31,8 @@ class SliderPreference @JvmOverloads constructor(
     /** 文本模式换算系数：text = rawValue × valueScale + valueOffset */
     var valueScale: Float = 1f
     var valueOffset: Float = 0f
+    /** 显示小数位数：0 = 整数，1 = 一位小数（根据步进值决定） */
+    var decimalPlaces: Int = 0
 
     private var slider: Slider? = null
     private var valueText: TextView? = null
@@ -197,10 +199,18 @@ class SliderPreference @JvmOverloads constructor(
     }
 
     private fun formatValue(v: Float): String {
-        return if (v == v.toLong().toFloat()) {
-            v.toLong().toString()
-        } else {
-            v.toString()
+        // 四舍五入到指定小数位数，避免浮点精度误差
+        val multiplier = when (decimalPlaces) {
+            0 -> 1f
+            1 -> 10f
+            else -> 10f.pow(decimalPlaces)
+        }
+        val rounded = Math.round(v * multiplier) / multiplier
+        
+        return when (decimalPlaces) {
+            0 -> rounded.toLong().toString()  // 整数：400
+            1 -> String.format("%.1f", rounded)  // 一位小数：0.0、1.0、144.3
+            else -> String.format("%.${decimalPlaces}f", rounded)
         }
     }
 }
