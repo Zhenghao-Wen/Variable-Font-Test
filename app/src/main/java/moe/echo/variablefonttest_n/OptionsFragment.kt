@@ -1305,5 +1305,7 @@ private data class SliderReplacement(
     val stepSize: Float,
     val defaultValue: Float,
     val showLabel: Boolean,
+    val valueScale: Float,
+    val valueOffset: Float,
     val handler: (Any?) -> Boolean
 )
