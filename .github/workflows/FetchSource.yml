@@ -1,4 +1,4 @@
-name: Debug Build - Slider Alignment (16dp/6dp)
+name: Fetch Code - Slider Floating Label Feature
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - QwenMirror
 
 jobs:
-  build:
+  fetch:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -17,110 +17,101 @@ jobs:
           ref: dev
           fetch-depth: 1
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Repackage to com.vftest
+      - name: Gather relevant code
+        shell: bash
         run: |
-          sed -i 's/applicationId = "moe.echo.variablefonttest_n"/applicationId = "com.vftest"/' app/build.gradle.kts
-          sed -i 's/android:label="@string\/app_name"/android:label="VFT-Debug"/' app/src/main/AndroidManifest.xml
+          set -euo pipefail
+          trap 'echo "❌ Error at line $LINENO (exit code $?)" >&2' ERR
 
-      - name: Write injection script
-        run: |
-          cat > inject_align.py << 'PYSCRIPT'
-          import io, sys
+          R="slider_label_feature.txt"
+          RES="app/src/main/res"
+          JAVA="app/src/main/java/moe/echo/variablefonttest_n"
 
-          path = "app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt"
-          with io.open(path, "r", encoding="utf-8") as f:
-              src = f.read()
+          safe_cat() {
+            if [ -f "$1" ]; then
+              cat "$1"
+            else
+              echo "[FILE NOT FOUND] $1"
+            fi
+          }
 
-          def repl(old, new, label):
-              global src
-              if old not in src:
-                  print("ERROR [" + label + "] not found: " + repr(old[:80]))
-                  sys.exit(1)
-              src = src.replace(old, new, 1)
-              print("OK [" + label + "]")
+          {
+            echo "# Fetch for Slider Floating Label Feature"
+            echo "# Commit: $(git rev-parse HEAD)"
+            echo "# Date: $(date -u)"
+            echo ""
 
-          # (1) 常量：三个位移量（整体替换为目标值）
-          repl(
-              "const val TRACK_END_INSET_DP = 1f",
-              "const val LEFT_SHIFT_DP = 6f\n"
-              "        const val WGHT_ASSEMBLY_SHIFT_DP = 16f\n"
-              "        const val OTHER_RIGHT_SHIFT_DP = 16f",
-              "constants",
-          )
+            echo "## [1] res/menu/main_menu.xml"
+            echo '```xml'
+            safe_cat "$RES/menu/main_menu.xml"
+            echo '```'
+            echo ""
 
-          # (2) wght 数值文字 marginEnd：整组左移 16dp
-          repl(
-              'width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()',
-              'width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()\n'
-              '                if (showLabel) (this as? android.view.ViewGroup.MarginLayoutParams)?.marginEnd = (WGHT_ASSEMBLY_SHIFT_DP * density).toInt()',
-              "value text marginEnd",
-          )
+            echo "## [2] Constants.kt"
+            echo '```kotlin'
+            safe_cat "$JAVA/Constants.kt"
+            echo '```'
+            echo ""
 
-          # (3) 补偿块变量
-          repl(
-              "val delta = (TRACK_END_INSET_DP * s.resources.displayMetrics.density).toInt()",
-              "val density = s.resources.displayMetrics.density\n"
-              "                val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()\n"
-              "                val otherRightShiftPx = (OTHER_RIGHT_SHIFT_DP * density).toInt()\n"
-              "                val valueTextWidth = valueText?.let { tv -> (tv.paint.measureText(\"1000\") + (tv.paddingStart + tv.paddingEnd) + 2 * density).toInt() } ?: 0",
-              "compensation vars",
-          )
+            echo "## [3] MainActivity.kt"
+            echo '```kotlin'
+            safe_cat "$JAVA/MainActivity.kt"
+            echo '```'
+            echo ""
 
-          # (4) marginStart：左端右移 6dp
-          repl(
-              "lp.marginStart = -(inset - delta)",
-              "lp.marginStart = -(inset - leftShiftPx)",
-              "marginStart",
-          )
+            echo "## [4] SliderPreference.kt"
+            echo '```kotlin'
+            safe_cat "$JAVA/SliderPreference.kt"
+            echo '```'
+            echo ""
 
-          # (5) marginEnd：wght=-inset(贴合)；非wght=留距 W-16dp
-          repl(
-              "lp.marginEnd = if (showLabel) -inset else -(inset + delta)",
-              "lp.marginEnd = if (showLabel) -inset else (valueTextWidth - otherRightShiftPx - inset)",
-              "marginEnd",
-          )
+            echo "## [5] res/layout/preference_widget_slider.xml"
+            echo '```xml'
+            safe_cat "$RES/layout/preference_widget_slider.xml"
+            echo '```'
+            echo ""
 
-          # (6) 轻量日志
-          repl(
-              "s.layoutParams = lp",
-              "s.layoutParams = lp\n"
-              "                    android.util.Log.d(\"SLIDER_ALIGN\", \"showLabel=\" + showLabel"
-              " + \" mStartPx=\" + lp.marginStart + \" mEndPx=\" + lp.marginEnd)",
-              "log",
-          )
+            echo "## [6] values/strings.xml (full)"
+            echo '```xml'
+            safe_cat "$RES/values/strings.xml"
+            echo '```'
+            echo ""
 
-          with io.open(path, "w", encoding="utf-8") as f:
-              f.write(src)
-          print("DONE: alignment injected")
-          PYSCRIPT
+            echo "## [7] values-zh-rCN/strings.xml (full)"
+            echo '```xml'
+            safe_cat "$RES/values-zh-rCN/strings.xml"
+            echo '```'
+            echo ""
 
-      - name: Run injection
-        run: python3 inject_align.py
+            echo "## [8] All locale string files present"
+            echo '```'
+            find "$RES" -name "strings.xml" | sort
+            echo '```'
+            echo ""
 
-      - name: Verify
-        run: |
-          echo "=== new constants ==="
-          grep -nE "LEFT_SHIFT_DP|WGHT_ASSEMBLY_SHIFT_DP|OTHER_RIGHT_SHIFT_DP" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt | head -6
-          echo "=== final marginEnd ==="
-          grep -n "valueTextWidth - otherRightShiftPx - inset" app/src/main/java/moe/echo/variablefonttest_n/SliderPreference.kt
+            echo "## [9] OptionsFragment.kt (full)"
+            echo '```kotlin'
+            safe_cat "$JAVA/OptionsFragment.kt"
+            echo '```'
+            echo ""
 
-      - name: Build debug APK
-        run: |
-          chmod +x gradlew
-          ./gradlew app:assembleDebug --no-daemon
+            echo "## [10] grep: label / formatter / showLabel usages"
+            echo '```'
+            grep -rnE "showLabel|labelBehavior|setLabelFormatter|LabelFormatter|formatter" "$JAVA" 2>/dev/null || echo "(none)"
+            echo '```'
+            echo ""
+
+            echo "## [11] grep: toFeatures / variation text-mode formatting"
+            echo '```'
+            grep -rnE "toFeatures|fontVariationSettings\[|VARIATION_AXIS|/ 10|- 90" "$JAVA/OptionsFragment.kt" 2>/dev/null || echo "(none)"
+            echo '```'
+          } > "$R"
+
+          echo "Report size: $(wc -c < "$R") bytes"
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: vftest-align-16dp
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 14
+          name: slider-label-feature-code
+          path: slider_label_feature.txt
+          retention-days: 7
