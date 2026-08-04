@@ -9,6 +9,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
 import com.google.android.material.slider.LabelFormatter
 import com.google.android.material.slider.Slider
+import kotlin.math.pow
 
 /**
  * A [Preference] that displays a Material 3 [Slider] instead of the legacy SeekBar.
