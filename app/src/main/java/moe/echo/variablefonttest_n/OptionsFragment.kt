@@ -267,6 +267,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     stepSize = preference.seekBarIncrement.toFloat().coerceAtLeast(1f)
                     sliderValue = preference.value.toFloat()
                     showLabel = false
+                    floatingLabelEnabled = PreferenceManager.getDefaultSharedPreferences(context)
+                        .getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
+                    valueScale = 1f
+                    valueOffset = 0f
                     isPersistent = false
                     setOnPreferenceChangeListener { _, newValue ->
                         val value = newValue.toString().toFloatOrNull()
@@ -535,7 +539,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
     }
 
     /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
-    private fun restoreCustomPrefs(useMd3Slider: Boolean, applyVariation: (String) -> Unit) {
+    private fun restoreCustomPrefs(useMd3Slider: Boolean, showFloatingLabel: Boolean, applyVariation: (String) -> Unit) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
         try {
@@ -590,6 +594,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                 stepSize = step.toFloat().coerceAtLeast(1f)
                                 sliderValue = savedValue ?: min.toFloat()
                                 showLabel = false
+                                floatingLabelEnabled = useMd3Slider && showFloatingLabel
+                                valueScale = 1f
+                                valueOffset = 0f
                                 isPersistent = false
                                 setOnPreferenceChangeListener { _, newValue ->
                                     val v = newValue.toString().toFloatOrNull()
@@ -865,6 +872,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(requireContext())
             .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
 
+        val showFloatingLabel = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            .getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
+
         if (useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Replace SeekBarPreferences with MD3 SliderPreferences
             variations?.let { category ->
@@ -878,6 +888,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         stepSize = 1f,
                         defaultValue = 0f,
                         showLabel = false,
+                        valueScale = 0.1f,
+                        valueOffset = 0f,
                         handler = italHandler
                     ),
                     SliderReplacement(
@@ -889,6 +901,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         stepSize = 1f,
                         defaultValue = 1f,
                         showLabel = false,
+                        valueScale = 0.1f,
+                        valueOffset = 0f,
                         handler = opszHandler
                     ),
                     SliderReplacement(
@@ -900,6 +914,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         stepSize = 1f,
                         defaultValue = 90f,
                         showLabel = false,
+                        valueScale = 1f,
+                        valueOffset = -90f,
                         handler = slntHandler
                     ),
                     SliderReplacement(
@@ -911,6 +927,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         stepSize = 1f,
                         defaultValue = 1000f,
                         showLabel = false,
+                        valueScale = 0.1f,
+                        valueOffset = 0f,
                         handler = wdthHandler
                     ),
                     SliderReplacement(
@@ -922,6 +940,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         stepSize = 1f,
                         defaultValue = 400f,
                         showLabel = true,
+                        valueScale = 1f,
+                        valueOffset = 0f,
                         handler = wghtHandler
                     )
                 )
@@ -965,6 +985,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             stepSize = r.stepSize
                             sliderValue = currentValue
                             showLabel = r.showLabel
+                            floatingLabelEnabled = showFloatingLabel
+                            valueScale = r.valueScale
+                            valueOffset = r.valueOffset
                             isPersistent = false
                             setOnPreferenceChangeListener { _, newValue -> r.handler(newValue) }
                             order = orderIdx++
@@ -1014,7 +1037,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         // ── 恢复自定义参数 UI 控件 ──
-        restoreCustomPrefs(useMd3Slider) { settings -> setVariation(settings) }
+        restoreCustomPrefs(useMd3Slider, showFloatingLabel) { settings -> setVariation(settings) }
 
         variationEditor?.setOnPreferenceChangeListener { _, newValue ->
             try {

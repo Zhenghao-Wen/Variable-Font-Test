@@ -65,6 +65,9 @@
     <!-- MD3 Slider toggle (Toolbar menu) -->
     <string name="enable_md3_slider">启用新版 Material 3 滑块</string>
 
+    <!-- Show floating label on MD3 sliders -->
+    <string name="show_floating_label">显示滑块浮动标签数值</string>
+
     <!-- Keep params on launch toggle -->
     <string name="keep_params_on_launch">下次启动时不重置参数</string>
 </resources>

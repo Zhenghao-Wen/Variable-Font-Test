@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.TextView
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
+import com.google.android.material.slider.LabelFormatter
 import com.google.android.material.slider.Slider
 
 /**
@@ -26,6 +27,10 @@ class SliderPreference @JvmOverloads constructor(
     var stepSize: Float = 1f
     var sliderValue: Float = 0f
     var showLabel: Boolean = false
+    var floatingLabelEnabled: Boolean = false
+    /** 文本模式换算系数：text = rawValue × valueScale + valueOffset */
+    var valueScale: Float = 1f
+    var valueOffset: Float = 0f
 
     private var slider: Slider? = null
     private var valueText: TextView? = null
@@ -44,6 +49,9 @@ class SliderPreference @JvmOverloads constructor(
          * LabelBehavior.GONE = 2；该注解为 @Retention(SOURCE)，编译后不在 AAR 中，无法导入，故用本地常量。
          */
         const val LABEL_GONE = 2
+
+        /** LabelBehavior.FLOATING = 0 */
+        const val LABEL_FLOATING = 0
 
         // ── 两端对齐微调量（dp），经 Android 12/15 实机调试确定，用于对齐 MD2 SeekBar 观感 ──
         /** 全部滑块左端右移量：轨道左缘相对"贴齐标题左缘"再右移此值 */
@@ -81,8 +89,17 @@ class SliderPreference @JvmOverloads constructor(
         s.valueTo = valueTo
         s.stepSize = stepSize
 
-        // ── 恒定不显示拖动浮动气泡 ──
-        s.labelBehavior = LABEL_GONE
+        // ── 拖动浮动标签：受 floatingLabelEnabled 控制 ──
+        if (floatingLabelEnabled) {
+            s.labelBehavior = LABEL_FLOATING
+            s.setLabelFormatter { value ->
+                val display = value * valueScale + valueOffset
+                formatValue(display)
+            }
+        } else {
+            s.labelBehavior = LABEL_GONE
+            s.setLabelFormatter(null)
+        }
         // ── 隐藏轨道步进圆点（tick marks）：步进值小则圆点密布，隐藏后更整洁 ──
         // 此处统一生效，预设滑块与自定义参数滑块均经 SliderPreference 渲染，一并覆盖。
         s.setTickVisible(false)

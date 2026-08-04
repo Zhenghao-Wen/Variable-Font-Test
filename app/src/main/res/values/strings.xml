@@ -69,6 +69,9 @@
     <!-- MD3 Slider toggle (Toolbar menu) -->
     <string name="enable_md3_slider">Enable new Material 3 Sliders</string>
 
+    <!-- Show floating label on MD3 sliders -->
+    <string name="show_floating_label">Show floating label values on sliders</string>
+
     <!-- Keep params on launch toggle -->
     <string name="keep_params_on_launch">Keep parameters on next launch</string>
 </resources>

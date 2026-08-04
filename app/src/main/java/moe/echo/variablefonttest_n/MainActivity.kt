@@ -99,16 +99,36 @@ class MainActivity : AppCompatActivity() {
             val prefs = PreferenceManager.getDefaultSharedPreferences(this)
             val useMd3Slider = prefs.getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
             tb.menu.findItem(R.id.action_enable_md3_slider)?.isChecked = useMd3Slider
+
+            // 浮动标签：仅 MD3 模式启用，MD2 模式下禁用（灰色）
+            val showFloatingLabel = prefs.getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
+            val floatingLabelItem = tb.menu.findItem(R.id.action_show_floating_label)
+            floatingLabelItem?.isChecked = showFloatingLabel
+            floatingLabelItem?.isEnabled = useMd3Slider
+
             val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
             tb.menu.findItem(R.id.action_keep_params)?.isChecked = keepParams
+
             tb.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
                     R.id.action_enable_md3_slider -> {
                         val newState = !menuItem.isChecked
                         menuItem.isChecked = newState
+                        // 同步浮动标签 checkbox 的启用态
+                        tb.menu.findItem(R.id.action_show_floating_label)?.isEnabled = newState
                         prefs.edit()
                             .putBoolean(Constants.PREF_USE_MD3_SLIDER, newState)
-                            .putBoolean(Constants.PREF_IS_MODE_SWITCH, true)  // ← 标记为模式切换
+                            .putBoolean(Constants.PREF_IS_MODE_SWITCH, true)
+                            .apply()
+                        recreate()
+                        true
+                    }
+                    R.id.action_show_floating_label -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_SHOW_FLOATING_LABEL, newState)
+                            .putBoolean(Constants.PREF_IS_MODE_SWITCH, true)  // 保留滑块状态
                             .apply()
                         recreate()
                         true
