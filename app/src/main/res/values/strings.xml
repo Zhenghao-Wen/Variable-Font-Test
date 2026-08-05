@@ -74,4 +74,7 @@
 
     <!-- Keep params on launch toggle -->
     <string name="keep_params_on_launch">Keep parameters on next launch</string>
+
+    <!-- Step value too small error message -->
+    <string name="step_value_too_small">Step value is too small (minimum 0.001)</string>
 </resources>

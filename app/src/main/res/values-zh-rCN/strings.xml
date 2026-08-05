@@ -70,4 +70,7 @@
 
     <!-- Keep params on launch toggle -->
     <string name="keep_params_on_launch">下次启动时不重置参数</string>
+
+    <!-- Step value too small error message -->
+    <string name="step_value_too_small">步进值太小（最小 0.001）</string>
 </resources>

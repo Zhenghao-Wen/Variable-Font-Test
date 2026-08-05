@@ -129,192 +129,236 @@ class OptionsFragment : PreferenceFragmentCompat() {
             updateSeekBarFieldsVisibility(currentPosition)
         }
 
+        // ── 步进值实时校验（Material 3 Error 状态）──
+        seekBarStep.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val stepVal = s?.toString()?.toFloatOrNull() ?: 0f
+                if (stepVal > 0 && stepVal < 0.001f) {
+                    seekBarStepLayout.isErrorEnabled = true
+                    seekBarStepLayout.error = getString(R.string.step_value_too_small)
+                } else {
+                    seekBarStepLayout.isErrorEnabled = false
+                    seekBarStepLayout.error = null
+                }
+            }
+        })
+
         setView(dialogLayout)
 
-        setPositiveButton(android.R.string.ok) { _, _ ->
-            val tagNameEditText = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagName)
-            val tagName = tagNameEditText.text.toString()
+        setPositiveButton(android.R.string.ok, null)
+        setNegativeButton(android.R.string.cancel) { _, _ -> return@setNegativeButton }
+    }.create().apply {
+        setOnShowListener {
+            val positiveButton = getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val tagNameEditText = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagName)
+                val tagName = tagNameEditText.text.toString()
 
-            val selectedItemPosition = adapter.getPosition(autoCompleteTextView.text.toString())
-            
-            // Validate position to prevent ArrayIndexOutOfBoundsException
-            if (selectedItemPosition < 0 || selectedItemPosition >= typeValues.size) {
-                Toast.makeText(context, R.string.invalid_tag_type, Toast.LENGTH_SHORT).show()
-                return@setPositiveButton
-            }
-            
-            val preference = when (typeValues[selectedItemPosition]) {
-                Constants.ADD_FEATURE_TYPE_SWITCH ->
-                    SwitchPreferenceCompat(preferenceScreen.context).apply {
+                // ── 1. 校验步进值，非法则拦截并阻止 Dialog 关闭 ──
+                val rawStepCheck = seekBarStep.text.toString()
+                val stepCheck = rawStepCheck.toFloatOrNull() ?: 0F
+                if (stepCheck > 0 && stepCheck < 0.001f) {
+                    Toast.makeText(context, R.string.step_value_too_small, Toast.LENGTH_SHORT).show()
+                    seekBarStepLayout.isErrorEnabled = true
+                    seekBarStepLayout.error = getString(R.string.step_value_too_small)
+                    return@setOnClickListener // 拦截，不 dismiss
+                }
 
-                        setOnPreferenceChangeListener { _, _ ->
-                            setSetting(tagName, if (!isChecked) "1" else "0")
-                            true
-                        }
-                    }
-                Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
-                    moe.echo.variablefonttest_n.SeekBarPreference(preferenceScreen.context).apply {
-                        val rawMin = seekBarMin.text.toString()
-                        val rawMax = seekBarMax.text.toString()
-                        val rawStep = seekBarStep.text.toString()
+                // ── 2. 重新解析原始浮点值（用于 MD3 Slider，避免整数缩放）──
+                val rawMinFinal = seekBarMin.text.toString()
+                val rawMaxFinal = seekBarMax.text.toString()
+                val rawStepFinal = seekBarStep.text.toString()
+                val minSettingFinal = rawMinFinal.toFloatOrNull() ?: 0F
+                val maxSettingFinal = rawMaxFinal.toFloatOrNull() ?: 0F
+                val minimumFinal = minSettingFinal.coerceAtMost(maxSettingFinal)
+                val maximumFinal = minSettingFinal.coerceAtLeast(maxSettingFinal)
+                val stepFinal = rawStepFinal.toFloatOrNull() ?: 0F
 
-                        val minSetting = rawMin.toFloatOrNull() ?: 0F
-                        val maxSetting = rawMax.toFloatOrNull() ?: 0F
+                val selectedItemPosition = adapter.getPosition(autoCompleteTextView.text.toString())
+                if (selectedItemPosition < 0 || selectedItemPosition >= typeValues.size) {
+                    Toast.makeText(context, R.string.invalid_tag_type, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
 
-                        val minimum = minSetting.coerceAtMost(maxSetting)
-                        val maximum = minSetting.coerceAtLeast(maxSetting)
-                        val step = rawStep.toFloatOrNull() ?: 0F
+                // ── 3. 创建底层 Preference（SeekBar/Switch/EditText 逻辑保持不变）──
+                val preference = when (typeValues[selectedItemPosition]) {
+                    Constants.ADD_FEATURE_TYPE_SWITCH ->
+                        SwitchPreferenceCompat(preferenceScreen.context).apply {
 
-                        var offset = 0F
-                        var multiplier = 1F
-
-                        if (rawStep.contains(".")) {
-                            val decimalWithDot = rawStep
-                                .substring(rawStep.indexOf("."))
-                            val decimalWithDotLength = decimalWithDot.length
-
-                            if (decimalWithDotLength > 1) {
-                                if (decimalWithDot.substring(1).toInt() > 0) {
-                                    multiplier *= 10F.pow(decimalWithDotLength - 1)
-                                }
+                            setOnPreferenceChangeListener { _, _ ->
+                                setSetting(tagName, if (!isChecked) "1" else "0")
+                                true
                             }
                         }
+                    Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
+                        moe.echo.variablefonttest_n.SeekBarPreference(preferenceScreen.context).apply {
+                            val rawMin = seekBarMin.text.toString()
+                            val rawMax = seekBarMax.text.toString()
+                            val rawStep = seekBarStep.text.toString()
 
-                        if (minimum < 0) {
-                            offset += abs(minimum)
+                            val minSetting = rawMin.toFloatOrNull() ?: 0F
+                            val maxSetting = rawMax.toFloatOrNull() ?: 0F
+
+                            val minimum = minSetting.coerceAtMost(maxSetting)
+                            val maximum = minSetting.coerceAtLeast(maxSetting)
+                            val step = rawStep.toFloatOrNull() ?: 0F
+
+                            var offset = 0F
+                            var multiplier = 1F
+
+                            if (rawStep.contains(".")) {
+                                val decimalWithDot = rawStep
+                                    .substring(rawStep.indexOf("."))
+                                val decimalWithDotLength = decimalWithDot.length
+
+                                if (decimalWithDotLength > 1) {
+                                    if (decimalWithDot.substring(1).toInt() > 0) {
+                                        multiplier *= 10F.pow(decimalWithDotLength - 1)
+                                    }
+                                }
+                            }
+
+                            if (minimum < 0) {
+                                offset += abs(minimum)
+                            }
+
+                            min = ((minimum + offset) * multiplier).toInt()
+                            max = ((maximum + offset) * multiplier).toInt()
+                            seekBarIncrement = (step * multiplier).toInt()
+
+                            Log.i(TAG, "createAddPreferenceDialog: $tagName: minimum: $minimum")
+                            Log.i(TAG, "createAddPreferenceDialog: $tagName: maximum: $maximum")
+                            Log.i(TAG, "createAddPreferenceDialog: $tagName: step: $step")
+
+                            Log.i(TAG, "createAddPreferenceDialog: $tagName: offset: $offset")
+                            Log.i(TAG, "createAddPreferenceDialog: $tagName: multiplier: $multiplier")
+
+                            Log.i(TAG, "createAddPreferenceDialog: $tagName: seekBar.min: $min")
+                            Log.i(TAG, "createAddPreferenceDialog: $tagName: seekBar.max: $max")
+                            Log.i(
+                                TAG,
+                                "createAddPreferenceDialog: $tagName: seekBar.seekBarIncrement: $seekBarIncrement"
+                            )
+
+                            updatesContinuously = true
+
+                            setOnPreferenceChangeListener { _, newValue ->
+                                val value = newValue.toString().toFloatOrNull()
+
+                                if (value != null) {
+                                    setSetting(
+                                        tagName,
+                                        ((value - offset * multiplier) / multiplier).toString()
+                                    )
+                                    persistSettings()
+                                    true
+                                } else false
+                            }
                         }
+                    }
+                    Constants.ADD_FEATURE_TYPE_EDIT_TEXT ->
+                        EditTextPreference(preferenceScreen.context).apply {
+                            dialogTitle = tagName
 
-                        min = ((minimum + offset) * multiplier).toInt()
-                        max = ((maximum + offset) * multiplier).toInt()
-                        seekBarIncrement = (step * multiplier).toInt()
+                            setOnPreferenceChangeListener { _, newValue ->
+                                try {
+                                    summary = newValue.toString()
+                                    setSetting(tagName, newValue.toString())
+                                    return@setOnPreferenceChangeListener true
+                                } catch (e: IllegalArgumentException) {
+                                    Toast.makeText(
+                                        context,
+                                        e.message.toString(),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                false
+                            }
+                        }
+                    else -> null
+                } ?: return@setOnClickListener
 
-                        Log.i(TAG, "createAddPreferenceDialog: $tagName: minimum: $minimum")
-                        Log.i(TAG, "createAddPreferenceDialog: $tagName: maximum: $maximum")
-                        Log.i(TAG, "createAddPreferenceDialog: $tagName: step: $step")
+                preference.apply {
+                    key = tagName
+                    title = tagName
 
-                        Log.i(TAG, "createAddPreferenceDialog: $tagName: offset: $offset")
-                        Log.i(TAG, "createAddPreferenceDialog: $tagName: multiplier: $multiplier")
+                    isPersistent = false
+                }
 
-                        Log.i(TAG, "createAddPreferenceDialog: $tagName: seekBar.min: $min")
-                        Log.i(TAG, "createAddPreferenceDialog: $tagName: seekBar.max: $max")
-                        Log.i(
-                            TAG,
-                            "createAddPreferenceDialog: $tagName: seekBar.seekBarIncrement: $seekBarIncrement"
-                        )
+                val duplicateKeyPreference = findPreference<Preference>(tagName)
+                if (duplicateKeyPreference != null) {
+                    preferences.removePreference(duplicateKeyPreference)
+                }
 
-                        updatesContinuously = true
-
+                // ── 4. MD3 Slider 替换逻辑（核心修复：使用原始 Float 值）──
+                val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(context)
+                    .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+                val finalPreference: Preference = if (
+                    useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                    typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR
+                ) {
+                    SliderPreference(context).apply {
+                        key = tagName
+                        title = tagName
+                        // ★★★ 修复异常缩放：直接使用原始 Float，不读取 preference.min/max ★★★
+                        valueFrom = minimumFinal
+                        valueTo = maximumFinal
+                        stepSize = stepFinal.coerceAtLeast(0.001f) // 仅防止 0
+                        sliderValue = minimumFinal // 默认初始值
+                        showLabel = false
+                        floatingLabelEnabled = PreferenceManager.getDefaultSharedPreferences(context)
+                            .getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
+                        valueScale = 1f
+                        valueOffset = 0f
+                        // 判断步进值是否为整数
+                        val isIntegerStep = (stepFinal == stepFinal.toLong().toFloat())
+                        decimalPlaces = if (isIntegerStep) 0 else 1
+                        
+                        isPersistent = false
                         setOnPreferenceChangeListener { _, newValue ->
                             val value = newValue.toString().toFloatOrNull()
-
                             if (value != null) {
-                                setSetting(
-                                    tagName,
-                                    ((value - offset * multiplier) / multiplier).toString()
-                                )
+                                setSetting(tagName, value.toString())
                                 persistSettings()
                                 true
                             } else false
                         }
                     }
+                } else {
+                    preference
                 }
-                Constants.ADD_FEATURE_TYPE_EDIT_TEXT ->
-                    EditTextPreference(preferenceScreen.context).apply {
-                        dialogTitle = tagName
+                preferences.addPreference(finalPreference)
 
-                        setOnPreferenceChangeListener { _, newValue ->
-                            try {
-                                summary = newValue.toString()
-                                setSetting(tagName, newValue.toString())
-                                return@setOnPreferenceChangeListener true
-                            } catch (e: IllegalArgumentException) {
-                                Toast.makeText(
-                                    context,
-                                    e.message.toString(),
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                            false
-                        }
-                    }
-                else -> null
-            } ?: return@setPositiveButton
+                // ── 5. 保存元数据 & 重排序（保留原有逻辑）──
+                saveCustomPrefMeta(
+                    context = context,
+                    key = tagName,
+                    type = typeValues[selectedItemPosition],
+                    category = if (preferences.key == Constants.PREF_CATEGORY_VARIATIONS) "variations" else "fontFeatures",
+                    min = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
+                        (finalPreference as? SeekBarPreference)?.min ?: 0 else 0,
+                    max = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
+                        (finalPreference as? SeekBarPreference)?.max ?: 100 else 100,
+                    step = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
+                        (finalPreference as? SeekBarPreference)?.seekBarIncrement ?: 1 else 1
+                )
 
-            preference.apply {
-                key = tagName
-                title = tagName
-
-                isPersistent = false
-            }
-
-            val duplicateKeyPreference = findPreference<Preference>(tagName)
-            if (duplicateKeyPreference != null) {
-                preferences.removePreference(duplicateKeyPreference)
-            }
-            // ── 如果 MD3 Slider 已开启且当前添加的是拖动条，替换为 SliderPreference ──
-            val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(context)
-                .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
-            val stepFloat = (preference as SeekBarPreference).seekBarIncrement.toFloat().coerceAtLeast(0.001f)
-            val finalPreference: Preference = if (
-                useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR
-            ) {
-                SliderPreference(context).apply {
-                    key = tagName
-                    title = tagName
-                    valueFrom = preference.min.toFloat()
-                    valueTo = preference.max.toFloat()
-                    stepSize = stepFloat
-                    sliderValue = preference.value.toFloat()
-                    showLabel = false
-                    floatingLabelEnabled = PreferenceManager.getDefaultSharedPreferences(context)
-                        .getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
-                    valueScale = 1f
-                    valueOffset = 0f
-                    // 判断步进值是否为整数
-                    val isIntegerStep = (stepFloat == stepFloat.toLong().toFloat())
-                    decimalPlaces = if (isIntegerStep) 0 else 1  // ← 根据步进值决定
-                    isPersistent = false
-                    setOnPreferenceChangeListener { _, newValue ->
-                        val value = newValue.toString().toFloatOrNull()
-                        if (value != null) {
-                            setSetting(tagName, value.toString())
-                            persistSettings()
-                            true
-                        } else false
+                preferences.forEach {
+                    when (it.key) {
+                        preference.key -> it.order = preferences.preferenceCount - 3
+                        Constants.PREF_ADD_FONT_VARIATION, Constants.PREF_ADD_FONT_FEATURE ->
+                            it.order = preferences.preferenceCount - 2
+                        Constants.PREF_EDIT_VARIATION, Constants.PREF_EDIT_FEATURE ->
+                            it.order = preferences.preferenceCount - 1
                     }
                 }
-            } else {
-                preference
-            }
-            preferences.addPreference(finalPreference)
-
-            // ── 保存自定义参数元数据（用于 recreate 后重建 UI）──
-            saveCustomPrefMeta(
-                context = context,
-                key = tagName,
-                type = typeValues[selectedItemPosition],
-                category = if (preferences.key == Constants.PREF_CATEGORY_VARIATIONS) "variations" else "fontFeatures",
-                min = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
-                    (finalPreference as? SeekBarPreference)?.min ?: 0 else 0,
-                max = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
-                    (finalPreference as? SeekBarPreference)?.max ?: 100 else 100,
-                step = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
-                    (finalPreference as? SeekBarPreference)?.seekBarIncrement ?: 1 else 1
-            )
-
-            // Reorganize preferences to make add & edit preference always at bottom
-            preferences.forEach {
-                when (it.key) {
-                    preference.key -> it.order = preferences.preferenceCount - 3
-                    Constants.PREF_ADD_FONT_VARIATION, Constants.PREF_ADD_FONT_FEATURE ->
-                        it.order = preferences.preferenceCount - 2
-                    Constants.PREF_EDIT_VARIATION, Constants.PREF_EDIT_FEATURE ->
-                        it.order = preferences.preferenceCount - 1
-                }
+                
+                // ── 6. 校验通过，关闭 Dialog ──
+                dismiss()
             }
         }
-        setNegativeButton(android.R.string.cancel) { _, _ -> return@setNegativeButton }
     }
 
 
