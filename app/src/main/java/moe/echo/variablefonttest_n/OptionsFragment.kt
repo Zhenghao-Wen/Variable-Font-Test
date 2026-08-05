@@ -74,10 +74,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
         context: Context,
         preferences: PreferenceCategory,
         setSetting: (tagName: String, value: String) -> Unit
-    ) = MaterialAlertDialogBuilder(context).apply {
-        // https://developer.android.com/develop/ui/views/components/dialogs#CustomLayout
-        // Inflate and set the layout for the dialog
-        // Pass null as the parent view because its going in the dialog layout
+    ): androidx.appcompat.app.AlertDialog {
+        val builder = MaterialAlertDialogBuilder(context)
         val dialogLayout = View.inflate(context, R.layout.add_preference_dialog, null)
 
         val autoCompleteTextView = dialogLayout.findViewById<AutoCompleteTextView>(R.id.tagType)
@@ -98,12 +96,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
         )
 
         autoCompleteTextView.setAdapter(adapter)
-        // Set default selection to the first item (Switch)
         if (autoCompleteTextView.text.toString().isEmpty()) {
             autoCompleteTextView.setText(adapter.getItem(0), false)
         }
         
-        // Helper function to show/hide seek bar fields based on selected type
         fun updateSeekBarFieldsVisibility(selectedPosition: Int) {
             when (typeValues[selectedPosition]) {
                 Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
@@ -123,7 +119,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
             updateSeekBarFieldsVisibility(position)
         }
         
-        // Initialize visibility based on current selection
         val currentPosition = adapter.getPosition(autoCompleteTextView.text.toString())
         if (currentPosition >= 0) {
             updateSeekBarFieldsVisibility(currentPosition)
@@ -145,13 +140,15 @@ class OptionsFragment : PreferenceFragmentCompat() {
             }
         })
 
-        setView(dialogLayout)
+        builder.setView(dialogLayout)
+        builder.setPositiveButton(android.R.string.ok, null)
+        builder.setNegativeButton(android.R.string.cancel) { _, _ -> /* 默认 dismiss */ }
 
-        setPositiveButton(android.R.string.ok, null)
-        setNegativeButton(android.R.string.cancel) { _, _ -> return@setNegativeButton }
-    }.create().apply {
-        setOnShowListener {
-            val positiveButton = getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+        val dialog = builder.create()
+
+        // ── 拦截 Positive Button 点击事件 ──
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
             positiveButton.setOnClickListener {
                 val tagNameEditText = dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagName)
                 val tagName = tagNameEditText.text.toString()
@@ -356,9 +353,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 }
                 
                 // ── 6. 校验通过，关闭 Dialog ──
-                dismiss()
+                dialog.dismiss()
             }
         }
+
+        return dialog
     }
 
 
