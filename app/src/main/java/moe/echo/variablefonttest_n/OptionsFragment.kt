@@ -1,6 +1,7 @@
 package moe.echo.variablefonttest_n
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -66,7 +67,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private val fontFeatureSettings = mutableMapOf<String, String>()
 
     private val getFont =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             if (uri != null) changeFontFromUri(uri)
         }
 
@@ -465,6 +466,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
         // 应用启动：仅在用户开启"下次启动不重置参数"时恢复
         val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
         if (!isModeSwitch && !keepParams) {
+            // 释放可能残留的自定义字体权限
+            releaseCustomFontPermission()
             prefs.edit()
                 .remove(PREF_VARIATION_STATE)
                 .remove(PREF_FEATURE_STATE)
@@ -811,6 +814,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     ttcIndex?.isVisible = false
                     previewContent?.typeface = valueToTypeface[newValue]
                     setVariation(fontVariationSettings.toFeatures())
+                    // 释放旧的自定义字体持久化权限
+                    releaseCustomFontPermission()
                     true
                 }
                 newValue == Constants.OPTION_CUSTOM_VALUE -> {
@@ -826,7 +831,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         customFont?.setOnPreferenceClickListener {
-            getFont.launch("font/*")
+            // OpenDocument 需要 MIME 类型数组；包含常见字体类型及 */* 兜底（部分 ROM 对字体 MIME 识别不全）
+            getFont.launch(arrayOf(
+                "font/ttf", "font/otf", "font/ttc",
+                "application/x-font-ttf", "application/x-font-otf",
+                "application/vnd.ms-opentype", "application/octet-stream",
+                "*/*"
+            ))
             true
         }
 
@@ -1290,6 +1301,15 @@ class OptionsFragment : PreferenceFragmentCompat() {
             .putString(Constants.PREF_CUSTOM_FONT_URI, uri.toString())
             .apply()
 
+        // ── 核心修复：获取持久化读取权限（跨重启/重启设备保留访问权）──
+        try {
+            requireContext().contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "changeFontFromUri: Failed to take persistable URI permission", e)
+        }
+
         activity?.runOnUiThread {
             val previewContent: EditText? = parentFragment?.view?.findViewById(R.id.preview_content)
 
@@ -1343,6 +1363,18 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
             Toast.makeText(context, R.string.font_import_failed, Toast.LENGTH_LONG).show()
         }
+    }
+
+    /** 释放自定义字体的持久化读取权限并清除 URI 记录 */
+    private fun releaseCustomFontPermission() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val uriStr = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null) ?: return
+        try {
+            requireContext().contentResolver.releasePersistableUriPermission(
+                Uri.parse(uriStr), Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: Exception) { }
+        prefs.edit().remove(Constants.PREF_CUSTOM_FONT_URI).apply()
     }
 }
 
