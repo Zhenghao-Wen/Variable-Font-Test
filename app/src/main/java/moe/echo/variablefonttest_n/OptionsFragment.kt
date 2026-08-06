@@ -474,6 +474,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 .remove(Constants.PREF_CUSTOM_PREFS_META)
                 .remove(Constants.PREF_FONT_FAMILY)       // 清除字族选择
                 .remove(Constants.PREF_CUSTOM_FONT_URI)   // 清除自定义字体 URI
+                .remove(Constants.PREF_PREVIEW_TEXT)      // 清除预览文本
                 .apply()
             return
         }
@@ -738,6 +739,23 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
         val previewContent: EditText? =
             parentFragment?.view?.findViewById(R.id.preview_content)
+
+        // ── 监听预览文本变化并持久化 ──
+        previewContent?.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val text = s?.toString()
+                val editor = PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                // 若用户清空文本，则移除 Key（重启后显示默认提示文本）；否则保存
+                if (text.isNullOrEmpty()) {
+                    editor.remove(Constants.PREF_PREVIEW_TEXT)
+                } else {
+                    editor.putString(Constants.PREF_PREVIEW_TEXT, text)
+                }
+                editor.apply()
+            }
+        })
 
         val textSize: EditTextPreference? = findPreference(Constants.PREF_TEXT_SIZE)
         val fontFamilies: ListPreference? = findPreference(Constants.PREF_FONT_FAMILIES)
@@ -1274,6 +1292,16 @@ class OptionsFragment : PreferenceFragmentCompat() {
         if (fontFeatureSettings.isNotEmpty()) {
             previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
             persistSettings()
+        }
+
+        // ── 恢复预览文本内容 ──
+        // 若 SP 中存在记录（说明 keepParams 为 true 或处于模式切换中），则覆盖默认文本
+        val savedPreviewText = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            .getString(Constants.PREF_PREVIEW_TEXT, null)
+        if (savedPreviewText != null) {
+            previewContent?.setText(savedPreviewText)
+            // 将光标移至文本末尾，方便用户继续编辑
+            previewContent?.setSelection(savedPreviewText.length)
         }
     }
 

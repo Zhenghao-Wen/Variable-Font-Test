@@ -55,4 +55,7 @@ object Constants {
     // ── Font family persistence ──
     const val PREF_FONT_FAMILY = "pref_font_family"
     const val PREF_CUSTOM_FONT_URI = "pref_custom_font_uri"
+    
+    // ── Preview text persistence ──
+    const val PREF_PREVIEW_TEXT = "pref_preview_text"
 }
