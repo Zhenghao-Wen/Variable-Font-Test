@@ -73,7 +73,7 @@
     <string name="show_floating_label">Show floating label values on sliders</string>
 
     <!-- Keep params on launch toggle -->
-    <string name="keep_params_on_launch">Keep parameters on next launch</string>
+    <string name="keep_params_on_launch">Keep the current state on next launch</string>
 
     <!-- Step value too small error message -->
     <string name="step_value_too_small">Step value is too small (minimum 0.001)</string>

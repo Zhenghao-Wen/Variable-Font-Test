@@ -69,7 +69,7 @@
     <string name="show_floating_label">显示滑块浮动标签数值</string>
 
     <!-- Keep params on launch toggle -->
-    <string name="keep_params_on_launch">下次启动时不重置参数</string>
+    <string name="keep_params_on_launch">下次启动时保持现状</string>
 
     <!-- Step value too small error message -->
     <string name="step_value_too_small">步进值太小（最小 0.001）</string>

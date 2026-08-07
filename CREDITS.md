@@ -33,9 +33,9 @@ We thank all the developers and contributors for their wonderful work.
 |:--|:--|:--|:--|
 | SimpleMenu Preference | `dev.rikka.rikkax.preference:simplemenu-preference:1.0.3` | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [RikkaW/MaterialPreference](https://github.com/RikkaW/MaterialPreference) |
 
-> **Note**: The upstream repository is deprecated. This dependency is retained
-> for legacy compatibility only.
-> Now this app uses Google Material Components instead.
+> **Note**: The upstream repository is deprecated. This dependency is retained for legacy compatibility only.
+> 
+> Now this app uses Google Material Components instead, with the equal function.
 
 ---
 
@@ -94,9 +94,19 @@ Special thanks to:
 - [Material Design Team](https://m3.material.io/)
 - [Lawnchair Team](https://github.com/LawnchairLauncher) for the Lawnicons icon set
 - [RikkaW](https://github.com/RikkaW) for SimpleMenu Preference
-- All open source contributors
-- and [Qwen](https://qwen.ai) for the high-performance LLM
+- [Qwen Team](https://qwen.ai) for the powerful LLM service conducting code design and code implementation
+- [DeepSeek Team](https://www.deepseek.com) for the high-efficiency LLM service cleaning up the code
+- [WordlessEcho](https://github.com/WordlessEcho) for the original project foundation
+- [Google Fonts](https://fonts.google.com/specimen/Google+Sans+Flex/license) for the Google Sans Flex in the v4 app demo video
+
+> Google Fonts also provides the high-quality Roboto, NotoSansCJK, and NotoSerifCJK fonts seen in the video, and we would like to thank them for that.
+
+> The variable NotoSerifCJK font ttc file in the video comes from [this patch](https://github.com/simonsmh/notocjk). 
+
+> The Chinese fonts used in the v4 app demo video are [HarmonyOS Sans](https://developer.huawei.com/consumer/cn/design/resource/#aca70492-8edf-4ae8-b789-74ed7daa2796) and [OPPO Sans](https://www.coloros.com/article/A00000050/), which are free for commercial use.
+
+- All open source contributors (including translators)
 
 ---
 
-*Last updated: 2026*
+*Last updated: 2026 Summer*
