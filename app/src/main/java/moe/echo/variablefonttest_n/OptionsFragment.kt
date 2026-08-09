@@ -475,6 +475,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 .remove(Constants.PREF_FONT_FAMILY)       // 清除字族选择
                 .remove(Constants.PREF_CUSTOM_FONT_URI)   // 清除自定义字体 URI
                 .remove(Constants.PREF_PREVIEW_TEXT)      // 清除预览文本
+                .remove(Constants.PREF_SAVED_TEXT_SIZE)   // 清除字号记录
+                .remove(Constants.PREF_SAVED_TTC_INDEX)   // 清除 TTC 索引记录
                 .apply()
             return
         }
@@ -816,8 +818,29 @@ class OptionsFragment : PreferenceFragmentCompat() {
             setOnPreferenceChangeListener { _, newValue ->
                 if (newValue.toString().toFloatOrNull() != null) {
                     previewContent?.textSize = newValue.toString().toFloat()
+                    // 持久化字号
+                    PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                        .putString(Constants.PREF_SAVED_TEXT_SIZE, newValue.toString())
+                        .apply()
                     true
                 } else false
+            }
+        }
+
+        // ── TTC 索引持久化 + 变更时重载字体 ──
+        ttcIndex?.apply {
+            setOnPreferenceChangeListener { _, newValue ->
+                // 持久化 TTC 索引
+                PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                    .putString(Constants.PREF_SAVED_TTC_INDEX, newValue.toString())
+                    .apply()
+                // 若当前已加载自定义字体，立即用新 TTC 索引重载
+                val savedUri = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .getString(Constants.PREF_CUSTOM_FONT_URI, null)
+                if (savedUri != null) {
+                    changeFontFromUri(Uri.parse(savedUri))
+                }
+                true
             }
         }
 
@@ -857,6 +880,22 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 "*/*"
             ))
             true
+        }
+
+        // ── 恢复字号和 TTC 索引（必须在字体加载前，确保 TTC 索引生效）──
+        val prefsForRestore = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        
+        // 恢复字号
+        val savedTextSize = prefsForRestore.getString(Constants.PREF_SAVED_TEXT_SIZE, null)
+        if (savedTextSize != null) {
+            textSize?.text = savedTextSize
+            previewContent?.textSize = savedTextSize.toFloatOrNull() ?: 20f
+        }
+        
+        // 恢复 TTC 索引（必须在 changeFontFromUri 之前）
+        val savedTtcIndex = prefsForRestore.getString(Constants.PREF_SAVED_TTC_INDEX, null)
+        if (savedTtcIndex != null) {
+            ttcIndex?.text = savedTtcIndex
         }
 
         // ── 恢复字体选择（模式切换 / 启动时均适用）──
@@ -1099,23 +1138,23 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 wght?.value = it.toInt()
             }
 
-            // ── 恢复 Feature 开关状态 ──
-            fontFeatureSettings[Constants.FEATURE_CHWS]?.let {
-                chws?.isChecked = (it == "1")
-            }
-            fontFeatureSettings[Constants.FEATURE_HALT]?.let {
-                halt?.isChecked = (it == "1")
-            }
-            fontFeatureSettings[Constants.FEATURE_FRAC]?.let {
-                frac?.isChecked = (it == "1")
-            }
-
             // ── 设置 listeners ──
             ital?.setOnPreferenceChangeListener { _, newValue -> italHandler(newValue) }
             opsz?.setOnPreferenceChangeListener { _, newValue -> opszHandler(newValue) }
             slnt?.setOnPreferenceChangeListener { _, newValue -> slntHandler(newValue) }
             wdth?.setOnPreferenceChangeListener { _, newValue -> wdthHandler(newValue) }
             wght?.setOnPreferenceChangeListener { _, newValue -> wghtHandler(newValue) }
+        }
+
+        // ── 恢复 Feature 开关状态（MD2/MD3 通用，必须在 listener 设置前）──
+        fontFeatureSettings[Constants.FEATURE_CHWS]?.let {
+            chws?.isChecked = (it == "1")
+        }
+        fontFeatureSettings[Constants.FEATURE_HALT]?.let {
+            halt?.isChecked = (it == "1")
+        }
+        fontFeatureSettings[Constants.FEATURE_FRAC]?.let {
+            frac?.isChecked = (it == "1")
         }
 
         // ── 恢复自定义参数 UI 控件 ──
@@ -1188,9 +1227,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         chws?.apply {
-            // `chws` is disabled by default when SDK < 33
+            // `chws` 在 SDK < 33 时默认关闭，但仅当用户从未手动设定过时才生效
+            // （若 SP 中已有保存状态，说明用户曾主动设定，不应覆盖）
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                isChecked = false
+                val hasSavedState = fontFeatureSettings.containsKey(Constants.FEATURE_CHWS)
+                if (!hasSavedState) {
+                    isChecked = false
+                }
             }
 
             setOnPreferenceChangeListener { _, _ ->
