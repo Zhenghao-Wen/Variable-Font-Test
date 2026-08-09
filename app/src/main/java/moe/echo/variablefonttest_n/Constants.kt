@@ -58,4 +58,8 @@ object Constants {
     
     // ── Preview text persistence ──
     const val PREF_PREVIEW_TEXT = "pref_preview_text"
+    
+    // ── Text size & TTC index persistence ──
+    const val PREF_SAVED_TEXT_SIZE = "pref_saved_text_size"
+    const val PREF_SAVED_TTC_INDEX = "pref_saved_ttc_index"
 }
