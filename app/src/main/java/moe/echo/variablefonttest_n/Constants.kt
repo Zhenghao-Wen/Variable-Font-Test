@@ -43,6 +43,7 @@ object Constants {
 
     // ── MD3 Slider toggle ──
     const val PREF_USE_MD3_SLIDER = "use_md3_slider"
+    const val PREF_SHOW_FLOATING_LABEL = "show_floating_label"
     
     // ── Keep params on launch toggle ──
     const val PREF_KEEP_PARAMS = "keep_params_on_launch"
@@ -54,4 +55,11 @@ object Constants {
     // ── Font family persistence ──
     const val PREF_FONT_FAMILY = "pref_font_family"
     const val PREF_CUSTOM_FONT_URI = "pref_custom_font_uri"
+    
+    // ── Preview text persistence ──
+    const val PREF_PREVIEW_TEXT = "pref_preview_text"
+    
+    // ── Text size & TTC index persistence ──
+    const val PREF_SAVED_TEXT_SIZE = "pref_saved_text_size"
+    const val PREF_SAVED_TTC_INDEX = "pref_saved_ttc_index"
 }

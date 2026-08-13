@@ -11,14 +11,27 @@ android {
         applicationId = "moe.echo.variablefonttest_n"
         minSdk = 21
         targetSdk = 35
-        versionCode = 21
-        versionName = "4.0"
+        versionCode = 22
+        versionName = "4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
     }
+
+    // ========== 新增 ABI 拆分配置 ==========
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            // 包含需要拆分的所有 ABI（与 Universal 包涵盖的架构一致）
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            // 同时生成包含全部架构的 Universal 包
+            isUniversalApk = true
+        }
+    }
+    // =====================================
 
     signingConfigs {
         create("release") {

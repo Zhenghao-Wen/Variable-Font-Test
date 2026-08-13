@@ -15,4 +15,8 @@
     <color name="pink_500">#E91E63</color>
 
     <color name="preview_content_background">@color/white</color>
+
+    <!-- MD3 Baseline 亮色（Secondary 系，Android 11 及以下静态 fallback） -->
+    <color name="md3_secondary">#4A4458</color>
+    <color name="md3_secondary_container">#E8DEF8</color>
 </resources>

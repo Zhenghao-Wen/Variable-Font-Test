@@ -6,27 +6,40 @@ Full Material 3 UI&UX Improvements are included in the latest v4 app.
 
 # Download
 
-[Github Release](https://github.com/Zhenghao-Wen/Variable-Font-Test/releases/tag/v4.0)
+<p align="left">
+  <a href="https://github.com/Zhenghao-Wen/Variable-Font-Test/releases/">
+    <img src="doc/pics/badge-github.png" alt="Get it on GitHub" height="60" /></a>
+</p>
 
 > We welcome your help in publishing it to any open-source app store. 
-
+> 
 > Google Play is definitely not being considered.
 
 # Preview
 
-https://github.com/user-attachments/assets/446df68d-e270-469c-9cdb-7d20620d50a5
+![](doc/pics/variable-font-test-zh-rCN-v4.1.mp4)
 
 # Maintenance
 
 It won't be actively maintained due to my academic load.
 
-If you come up with some creative ideas or find a bug, please create your own fork and start a Pull Request.
+If you find a bug, please feel free to open an issue, but I can't guarantee a timely fix.
+
+If you come up with some creative ideas, please create your own fork and start a Pull Request.
+
+# Credits
+
+We thank all the developers and contributors for their wonderful work.
+
+[View Details](CREDITS.md)
+
+[Translators (zh-rTW)](TRANSLATORS.md)
 
 <details>
 
 <summary>More</summary>
 
-### Some Useful Words for Test (My Personal Suggestion)
+### Some Useful Text for Test (My Personal Suggestion)
 
 [Text4Test](TEXT4TEST.md)
 

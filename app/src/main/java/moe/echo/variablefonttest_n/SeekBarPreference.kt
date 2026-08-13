@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.util.AttributeSet
+import android.view.Gravity
 import android.widget.SeekBar
+import android.widget.TextView
 import androidx.preference.PreferenceViewHolder
 import androidx.preference.SeekBarPreference
 import com.google.android.material.color.MaterialColors
@@ -40,5 +42,30 @@ class SeekBarPreference @JvmOverloads constructor(
         val primaryColorStateList = ColorStateList.valueOf(primaryColor)
         seekBar.progressTintList = primaryColorStateList
         seekBar.thumbTintList = primaryColorStateList
+
+        // ── wght 数值显示区：与 MD3 slider_value 统一样式（外观/颜色/等宽/自适应宽度/居中）──
+        // seekbar_value 来自库布局不可直接改 XML，故在 super.onBindViewHolder 之后程序化统一，
+        // 使其与 MD3 slider_value 的 XML 定义（textAppearanceListItemSecondary + textColorSecondary）同源。
+        (view.findViewById(androidx.preference.R.id.seekbar_value) as? android.widget.TextView)?.let { tv ->
+            // 统一文字外观与颜色（解析主题属性）
+            val ta = tv.context.obtainStyledAttributes(
+                intArrayOf(android.R.attr.textAppearanceListItemSecondary, android.R.attr.textColorSecondary)
+            )
+            val appearanceRes = ta.getResourceId(0, 0)
+            val textColor = ta.getColor(1, tv.currentTextColor)
+            ta.recycle()
+            if (appearanceRes != 0) {
+                androidx.core.widget.TextViewCompat.setTextAppearance(tv, appearanceRes)
+            }
+            tv.setTextColor(textColor)
+            // 等宽数字 + 自适应宽度（完整容纳 1000）+ 居中
+            tv.fontFeatureSettings = "tnum"
+            val density = tv.resources.displayMetrics.density
+            val paddingH = (tv.paddingStart + tv.paddingEnd).toFloat()
+            tv.layoutParams = tv.layoutParams.apply {
+                width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()
+            }
+            tv.gravity = Gravity.CENTER
+        }
     }
 }
