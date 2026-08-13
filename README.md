@@ -17,13 +17,15 @@ Full Material 3 UI&UX Improvements are included in the latest v4 app.
 
 # Preview
 
-https://github.com/user-attachments/assets/446df68d-e270-469c-9cdb-7d20620d50a5
+![](doc/pics/variable-font-test-zh-rCN-v4.1.mp4)
 
 # Maintenance
 
 It won't be actively maintained due to my academic load.
 
-If you come up with some creative ideas or find a bug, please create your own fork and start a Pull Request.
+If you find a bug, please feel free to open an issue, but I can't guarantee a timely fix.
+
+If you come up with some creative ideas, please create your own fork and start a Pull Request.
 
 # Credits
 
