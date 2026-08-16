@@ -17,7 +17,7 @@ Full Material 3 UI&UX Improvements are included in the latest v4 app.
 
 # Preview
 
-![](https://github.com/user-attachments/assets/50e2404a-0349-40e0-8c04-4e1ce2166568)
+https://github.com/user-attachments/assets/50e2404a-0349-40e0-8c04-4e1ce2166568
 
 # Maintenance
 
