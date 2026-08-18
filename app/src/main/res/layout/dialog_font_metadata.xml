@@ -3,18 +3,21 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@android:color/transparent">
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/metadata_tab_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@android:color/transparent"
         app:tabMode="scrollable"
         app:tabGravity="start" />
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/metadata_view_pager"
         android:layout_width="match_parent"
-        android:layout_height="350dp" />
+        android:layout_height="350dp"
+        android:background="@android:color/transparent" />
 
 </LinearLayout>

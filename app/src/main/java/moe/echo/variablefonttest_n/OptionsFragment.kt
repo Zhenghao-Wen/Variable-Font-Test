@@ -1536,16 +1536,20 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val tabLayout = dialogView.findViewById<TabLayout>(R.id.metadata_tab_layout)
         val viewPager = dialogView.findViewById<ViewPager2>(R.id.metadata_view_pager)
 
-        viewPager.adapter = MetadataPagerAdapter(pages)
-        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-            tab.text = pages[position].first
-        }.attach()
-
         MaterialAlertDialogBuilder(context)
             .setTitle(R.string.font_metadata)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok, null)
             .show()
+
+        // 延迟到 Dialog 布局稳定后再设置 adapter，
+        // 避免进入动画期间 ViewPager2 宽度未定导致多页同时可见
+        dialogView.post {
+            viewPager.adapter = MetadataPagerAdapter(pages)
+            TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+                tab.text = pages[position].first
+            }.attach()
+        }
     }
 
     private fun formatAxisValue(v: Float): String =
@@ -1571,15 +1575,27 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
-            holder.rv.adapter = MetadataEntryAdapter(pages[position].second)
+            holder.rv.adapter = MetadataEntryAdapter(
+                entries = pages[position].second,
+                // ② 可变轴页（index=1）：数值字号缩小至 75%
+                valueTextScale = if (position == 1) 0.75f else 1f,
+                // ④ OT 特性页（index=2）：空值不显示"—"，直接隐藏
+                hideEmptyValue = position == 2
+            )
         }
 
         override fun getItemCount() = pages.size
     }
 
-    /** 属性条目适配器：标题小字 + 值大字，点击复制 */
+    /**
+     * 属性条目适配器：标题小字 + 值大字，点击复制。
+     * @param valueTextScale 值文本缩放比例（1f = 原始大小，0.75f = 缩小 25%）
+     * @param hideEmptyValue 空值时是否隐藏 value 行（true = 隐藏，false = 显示"—"）
+     */
     private inner class MetadataEntryAdapter(
-        private val entries: List<Pair<String, String>>
+        private val entries: List<Pair<String, String>>,
+        private val valueTextScale: Float = 1f,
+        private val hideEmptyValue: Boolean = false
     ) : RecyclerView.Adapter<MetadataEntryAdapter.VH>() {
 
         inner class VH(view: android.view.View) : RecyclerView.ViewHolder(view) {
@@ -1596,14 +1612,35 @@ class OptionsFragment : PreferenceFragmentCompat() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val (label, value) = entries[position]
             holder.label.text = label
-            holder.value.text = value.ifEmpty { "—" }
 
-            holder.itemView.setOnClickListener { v ->
-                if (value.isNotEmpty()) {
-                    val cm = v.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    cm.setPrimaryClip(ClipData.newPlainText(label, value))
-                    Toast.makeText(v.context, R.string.font_metadata_copied, Toast.LENGTH_SHORT).show()
+            // ── ④ 空值处理 ──
+            if (value.isEmpty()) {
+                if (hideEmptyValue) {
+                    holder.value.visibility = View.GONE
+                } else {
+                    holder.value.visibility = View.VISIBLE
+                    holder.value.text = "—"
                 }
+            } else {
+                holder.value.visibility = View.VISIBLE
+                holder.value.text = value
+            }
+
+            // ── ③ 字号缩放（可变轴页 75%）──
+            if (valueTextScale != 1f) {
+                val basePx = holder.value.textSize // 当前 px 值
+                holder.value.setTextSize(
+                    android.util.TypedValue.COMPLEX_UNIT_PX,
+                    basePx * valueTextScale
+                )
+            }
+
+            // ── ⑤ 复制逻辑：包含标题 ──
+            holder.itemView.setOnClickListener { v ->
+                val copyText = if (value.isEmpty()) label else "$label: $value"
+                val cm = v.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText(label, copyText))
+                Toast.makeText(v.context, R.string.font_metadata_copied, Toast.LENGTH_SHORT).show()
             }
         }
 
