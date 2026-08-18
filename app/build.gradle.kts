@@ -35,10 +35,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("KEYSTORE_FILE") ?: "/dev/null")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("KEY_ALIAS") ?: ""
-            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            storeFile = file("D:\\AndroidSignature\\my-release-key.jks")
+            storePassword = "zhihu"
+            keyAlias = "hydrogen"
+            keyPassword = "android"
         }
     }
 
