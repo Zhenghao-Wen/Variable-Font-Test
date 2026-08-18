@@ -77,4 +77,28 @@
 
     <!-- Step value too small error message -->
     <string name="step_value_too_small">Step value is too small (minimum 0.001)</string>
+
+    <!-- Font Metadata -->
+    <string name="font_metadata">View Font Metadata</string>
+    <string name="font_metadata_no_custom_font">Please select a custom font first</string>
+    <string name="font_metadata_parse_error">Failed to parse font metadata</string>
+    <string name="font_metadata_copied">Copied to clipboard</string>
+    <string name="font_metadata_tab_names">Names</string>
+    <string name="font_metadata_tab_axes">Axes</string>
+    <string name="font_metadata_tab_features">Features</string>
+    <string name="font_metadata_tab_version">Version</string>
+    <string name="font_metadata_full_name">Full Name</string>
+    <string name="font_metadata_family">Font Family</string>
+    <string name="font_metadata_subfamily">Font Subfamily</string>
+    <string name="font_metadata_unique_id">Unique Subfamily Identification</string>
+    <string name="font_metadata_postscript">PostScript Name</string>
+    <string name="font_metadata_no_axes">No variable axes found</string>
+    <string name="font_metadata_axis_min">Min</string>
+    <string name="font_metadata_axis_default">Default</string>
+    <string name="font_metadata_axis_max">Max</string>
+    <string name="font_metadata_no_features">No OpenType features found</string>
+    <string name="font_metadata_version">Version</string>
+    <string name="font_metadata_manufacturer">Manufacturer</string>
+    <string name="font_metadata_designer">Designer</string>
+    <string name="font_metadata_copyright">Copyright</string>
 </resources>

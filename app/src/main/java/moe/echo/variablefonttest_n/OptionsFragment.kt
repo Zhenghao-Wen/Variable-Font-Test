@@ -1,5 +1,7 @@
 package moe.echo.variablefonttest_n
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
@@ -10,11 +12,14 @@ import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -32,11 +37,15 @@ import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
 import androidx.preference.PreferenceManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -882,6 +891,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        // ── 查看字体元数据 ──
+        findPreference<Preference>(Constants.PREF_FONT_METADATA)?.setOnPreferenceClickListener {
+            showFontMetadataDialog()
+            true
+        }
+
         // ── 恢复字号和 TTC 索引（必须在字体加载前，确保 TTC 索引生效）──
         val prefsForRestore = PreferenceManager.getDefaultSharedPreferences(requireContext())
         
@@ -1446,6 +1461,153 @@ class OptionsFragment : PreferenceFragmentCompat() {
             )
         } catch (_: Exception) { }
         prefs.edit().remove(Constants.PREF_CUSTOM_FONT_URI).apply()
+    }
+
+    // ══════════════════════════════════════════════
+    //  字体元数据弹窗
+    // ══════════════════════════════════════════════
+
+    private fun showFontMetadataDialog() {
+        val context = requireContext()
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val customFontUri = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null)
+
+        // 未选择自定义字体时提示
+        if (customFontUri == null) {
+            Toast.makeText(context, R.string.font_metadata_no_custom_font, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 读取当前 TTC 索引（与 changeFontFromUri 同源）
+        val ttcIndex = findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)
+            ?.text?.toIntOrNull() ?: 0
+
+        // 解析字体文件
+        val metadata = try {
+            context.contentResolver.openFileDescriptor(Uri.parse(customFontUri), "r")?.use { pfd ->
+                java.io.FileInputStream(pfd.fileDescriptor).use { fis ->
+                    FontMetadataParser.parse(fis, ttcIndex)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "showFontMetadataDialog: parse failed", e)
+            null
+        }
+
+        if (metadata == null) {
+            Toast.makeText(context, R.string.font_metadata_parse_error, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // ── 构建 4 页数据 ──
+        val pages: List<Pair<String, List<Pair<String, String>>>> = listOf(
+            // ① 名称与样式
+            getString(R.string.font_metadata_tab_names) to listOf(
+                getString(R.string.font_metadata_full_name) to metadata.nameInfo.fullName,
+                getString(R.string.font_metadata_family) to metadata.nameInfo.fontFamily,
+                getString(R.string.font_metadata_subfamily) to metadata.nameInfo.fontSubfamily,
+                getString(R.string.font_metadata_unique_id) to metadata.nameInfo.uniqueId,
+                getString(R.string.font_metadata_postscript) to metadata.nameInfo.postScriptName
+            ),
+            // ② 可变轴
+            getString(R.string.font_metadata_tab_axes) to metadata.axes.map { axis ->
+                "${axis.tag} (${axis.name})" to buildString {
+                    append("${getString(R.string.font_metadata_axis_min)}: ${formatAxisValue(axis.min)}")
+                    append("  ${getString(R.string.font_metadata_axis_default)}: ${formatAxisValue(axis.default)}")
+                    append("  ${getString(R.string.font_metadata_axis_max)}: ${formatAxisValue(axis.max)}")
+                }
+            }.ifEmpty { listOf(getString(R.string.font_metadata_no_axes) to "") },
+            // ③ OT 特性
+            getString(R.string.font_metadata_tab_features) to metadata.features.map { tag ->
+                tag to ""
+            }.ifEmpty { listOf(getString(R.string.font_metadata_no_features) to "") },
+            // ④ 版本与版权
+            getString(R.string.font_metadata_tab_version) to listOf(
+                getString(R.string.font_metadata_version) to metadata.nameInfo.version,
+                getString(R.string.font_metadata_manufacturer) to metadata.nameInfo.manufacturer,
+                getString(R.string.font_metadata_designer) to metadata.nameInfo.designer,
+                getString(R.string.font_metadata_copyright) to metadata.nameInfo.copyright
+            )
+        )
+
+        // ── 构建 Dialog ──
+        val dialogView = LayoutInflater.from(context)
+            .inflate(R.layout.dialog_font_metadata, null)
+        val tabLayout = dialogView.findViewById<TabLayout>(R.id.metadata_tab_layout)
+        val viewPager = dialogView.findViewById<ViewPager2>(R.id.metadata_view_pager)
+
+        viewPager.adapter = MetadataPagerAdapter(pages)
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = pages[position].first
+        }.attach()
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.font_metadata)
+            .setView(dialogView)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun formatAxisValue(v: Float): String =
+        if (v == v.toLong().toFloat()) v.toLong().toString()
+        else String.format("%.2f", v)
+
+    /** ViewPager2 适配器：每页一个纵向 RecyclerView */
+    private inner class MetadataPagerAdapter(
+        private val pages: List<Pair<String, List<Pair<String, String>>>>
+    ) : RecyclerView.Adapter<MetadataPagerAdapter.PageViewHolder>() {
+
+        inner class PageViewHolder(val rv: RecyclerView) : RecyclerView.ViewHolder(rv)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageViewHolder {
+            val rv = RecyclerView(parent.context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                layoutManager = LinearLayoutManager(parent.context)
+            }
+            return PageViewHolder(rv)
+        }
+
+        override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
+            holder.rv.adapter = MetadataEntryAdapter(pages[position].second)
+        }
+
+        override fun getItemCount() = pages.size
+    }
+
+    /** 属性条目适配器：标题小字 + 值大字，点击复制 */
+    private inner class MetadataEntryAdapter(
+        private val entries: List<Pair<String, String>>
+    ) : RecyclerView.Adapter<MetadataEntryAdapter.VH>() {
+
+        inner class VH(view: android.view.View) : RecyclerView.ViewHolder(view) {
+            val label: TextView = view.findViewById(R.id.metadata_entry_label)
+            val value: TextView = view.findViewById(R.id.metadata_entry_value)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_metadata_entry, parent, false)
+            return VH(view)
+        }
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val (label, value) = entries[position]
+            holder.label.text = label
+            holder.value.text = value.ifEmpty { "—" }
+
+            holder.itemView.setOnClickListener { v ->
+                if (value.isNotEmpty()) {
+                    val cm = v.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText(label, value))
+                    Toast.makeText(v.context, R.string.font_metadata_copied, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        override fun getItemCount() = entries.size
     }
 }
 
