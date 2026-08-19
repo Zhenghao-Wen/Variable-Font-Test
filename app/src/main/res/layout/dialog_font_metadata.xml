@@ -30,8 +30,7 @@
             android:layout_centerVertical="true"
             android:src="@drawable/ic_help_24"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/help"
-            android:padding="8dp" /> <!-- 24dp 图标 + 8dp padding = 40dp，视觉大小适中 -->
+            android:contentDescription="@string/help" />
 
     </RelativeLayout>
 
