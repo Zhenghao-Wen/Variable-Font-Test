@@ -3,8 +3,37 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@android:color/transparent">
+    android:orientation="vertical">
+
+    <!-- 标题栏：直接放在内容区顶部，彻底避免 setCustomTitle 的容器间距问题 -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="0dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="@string/font_metadata"
+            android:textAppearance="?attr/textAppearanceTitleLarge" />
+
+        <ImageView
+            android:id="@+id/metadata_help_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:src="@drawable/ic_help_24"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/help"
+            android:padding="8dp" /> <!-- 24dp 图标 + 8dp padding = 40dp，视觉大小适中 -->
+
+    </RelativeLayout>
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/metadata_tab_layout"

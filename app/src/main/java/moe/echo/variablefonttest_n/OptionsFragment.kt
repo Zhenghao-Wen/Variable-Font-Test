@@ -1699,8 +1699,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val tabLayout = dialogView.findViewById<TabLayout>(R.id.metadata_tab_layout)
         val viewPager = dialogView.findViewById<ViewPager2>(R.id.metadata_view_pager)
 
-        val titleView = LayoutInflater.from(context).inflate(R.layout.dialog_font_metadata_title, null)
-        titleView.findViewById<ImageView>(R.id.metadata_help_button).setOnClickListener {
+        // 直接从 dialogView 获取帮助按钮并设置点击事件
+        dialogView.findViewById<ImageView>(R.id.metadata_help_button).setOnClickListener {
             MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.help)
                 .setMessage(R.string.font_metadata_help_message)
@@ -1708,16 +1708,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 .show()
         }
 
+        // 不再使用 setCustomTitle，直接 setView
         MaterialAlertDialogBuilder(context)
-            .setCustomTitle(titleView)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok, null)
             .show()
-
-        // 兜底：强制移除 custom title 父容器的底部 padding
-        (titleView.parent as? android.view.View)?.let { parent ->
-            parent.setPadding(parent.paddingLeft, parent.paddingTop, parent.paddingRight, 0)
-        }
 
         // 延迟到 Dialog 布局稳定后再设置 adapter，
         // 避免进入动画期间 ViewPager2 宽度未定导致多页同时可见
