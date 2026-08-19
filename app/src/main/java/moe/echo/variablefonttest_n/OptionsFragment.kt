@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -1218,10 +1219,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
         addVariation?.setOnPreferenceClickListener {
             if (variations != null) {
-                createAddPreferenceDialog(view.context, variations) { tagName, value ->
-                    fontVariationSettings[tagName] = value
-                    setVariation(fontVariationSettings.toFeatures())
-                }.apply {
+                createAddPreferenceDialog(
+                    context = view.context,
+                    preferences = variations,
+                    setSetting = { tagName, value ->
+                        fontVariationSettings[tagName] = value
+                        setVariation(fontVariationSettings.toFeatures())
+                    }
+                ).apply {
                     setTitle(R.string.add_font_variation)
                     show()
                 }
@@ -1320,10 +1325,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
         addFeature?.setOnPreferenceClickListener {
             if (fontFeatures != null) {
-                createAddPreferenceDialog(view.context, fontFeatures) { tagName, value ->
-                    fontFeatureSettings[tagName] = value
-                    previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
-                }.apply {
+                createAddPreferenceDialog(
+                    context = view.context,
+                    preferences = fontFeatures,
+                    setSetting = { tagName, value ->
+                        fontFeatureSettings[tagName] = value
+                        previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+                    }
+                ).apply {
                     setTitle(R.string.add_font_feature)
                     show()
                 }
@@ -1459,11 +1468,18 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         .remove(Constants.PREF_CUSTOM_FONT_URI)
                         .putString(Constants.PREF_FONT_FAMILY, "default")
                         .apply()
-                    fontFamilies?.value = "default"
-                    customFont?.isVisible = false
-                    ttcIndex?.isVisible = false
-                    previewContent?.typeface = Typeface.DEFAULT
-                    setVariation(fontVariationSettings.toFeatures())
+                    
+                    // 重新获取 UI 元素并更新
+                    findPreference<ListPreference>(Constants.PREF_FONT_FAMILIES)?.value = "default"
+                    findPreference<Preference>(Constants.PREF_CUSTOM_FONT)?.isVisible = false
+                    findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)?.isVisible = false
+                    
+                    val preview = parentFragment?.view?.findViewById<EditText>(R.id.preview_content)
+                    preview?.typeface = Typeface.DEFAULT
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        preview?.fontVariationSettings = fontVariationSettings.toFeatures()
+                    }
+                    
                     updateMetadataVisibility()
                     Toast.makeText(context, R.string.external_font_permission_expired, Toast.LENGTH_LONG).show()
                     return@runOnUiThread
@@ -1609,7 +1625,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 pref.valueFrom = uiMin
                 pref.valueTo = uiMax
                 pref.sliderValue = pref.sliderValue.coerceIn(uiMin, uiMax)
-                pref.notifyChanged()
             } else if (pref is SeekBarPreference) {
                 pref.min = uiMin.toInt()
                 pref.max = uiMax.toInt()
@@ -1617,8 +1632,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
             }
             Toast.makeText(requireContext(), R.string.metadata_axis_range_updated, Toast.LENGTH_SHORT).show()
         }
-
-        enum class PageType { AXIS, FEATURE, OTHER }
 
         val onLongClickAction: (PageType, String, Float?, Float?) -> Boolean = { type, tag, min, max ->
             when (type) {
@@ -1713,6 +1726,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private fun formatAxisValue(v: Float): String =
         if (v == v.toLong().toFloat()) v.toLong().toString()
         else String.format("%.2f", v)
+
+    private enum class PageType { AXIS, FEATURE, OTHER }
 
     /** ViewPager2 适配器：每页一个纵向 RecyclerView */
     private inner class MetadataPagerAdapter(
