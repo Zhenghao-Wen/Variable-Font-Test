@@ -1647,7 +1647,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                 context = requireContext(), preferences = category,
                                 setSetting = { tagName, value ->
                                     fontVariationSettings[tagName] = value
-                                    setVariation(fontVariationSettings.toFeatures())
+                                    val preview = parentFragment?.view?.findViewById<EditText>(R.id.preview_content)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        preview?.fontVariationSettings = fontVariationSettings.toFeatures()
+                                    }
                                     persistSettings()
                                 },
                                 prefillName = tag, prefillType = Constants.ADD_FEATURE_TYPE_SEEK_BAR,
@@ -1670,7 +1673,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                 context = requireContext(), preferences = category,
                                 setSetting = { tagName, value ->
                                     fontFeatureSettings[tagName] = value
-                                    previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+                                    val preview = parentFragment?.view?.findViewById<EditText>(R.id.preview_content)
+                                    preview?.fontFeatureSettings = fontFeatureSettings.toFeatures()
                                     persistSettings()
                                 },
                                 prefillName = tag, prefillType = Constants.ADD_FEATURE_TYPE_SWITCH
