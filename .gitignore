@@ -3,70 +3,109 @@
 *.class
 *.o
 *.obj
+*.out
 *.so
-*.a
 *.dll
 *.exe
-*.out
-build/
-dist/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.jar
+*.war
+*.ear
+*.swf
+*.zip
+*.tar.gz
+*.tar
+*.gz
+*.rar
+*.7z
 
 # Dependencies
-.gradle/
-target/
-__pycache__/
-.mypy_cache/
-.pytest_cache/
 node_modules/
 venv/
 .venv/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# Editors
+# Build directories
+build/
+dist/
+target/
+.gradle/
+.cargo/
+.npm/
+.yarn/
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
+*.log
 
 # System files
 .DS_Store
 Thumbs.db
 
-# Coverage
+# Coverage reports
 coverage/
 htmlcov/
 .coverage
 
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+# Python specific
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.tox/
+
+# Java specific
+*.class
+*.jar
+*.war
+*.ear
+*.jsp
+*.jspx
+*.classpath
+.project
+.settings/
+bin/
+gen/
+
+# Android specific
+*.apk
+*.aab
+local.properties
+.gradle/
+build/
+.externalNativeBuild/
+.cxx/
+captures/
+output.json
+
+# Kotlin specific
+*.kotlin_metadata
+*.kotlin_builtins
+
+# Generated files
+generated/
+gen/
+.autotools/
+.libs/
+
+# Temporary files
+*.tmp
+*~
+.\#*
+\#*\#
 ```

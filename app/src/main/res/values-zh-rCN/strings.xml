@@ -97,4 +97,8 @@
     <string name="font_metadata_manufacturer">制造商</string>
     <string name="font_metadata_designer">设计师</string>
     <string name="font_metadata_copyright">版权</string>
+    <string name="external_font_permission_expired">外部打开的字体权限已过期，已回退到默认字体</string>
+    <string name="help">帮助</string>
+    <string name="font_metadata_help_message">短按：复制值。\n长按：快速添加自定义轴/特性。\n对于内置轴，长按将更新滑块范围。</string>
+    <string name="metadata_axis_range_updated">滑块范围已更新</string>
 </resources>

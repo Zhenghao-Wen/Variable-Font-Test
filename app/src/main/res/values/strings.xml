@@ -101,4 +101,8 @@
     <string name="font_metadata_manufacturer">Manufacturer</string>
     <string name="font_metadata_designer">Designer</string>
     <string name="font_metadata_copyright">Copyright</string>
+    <string name="external_font_permission_expired">External font permission expired, reverted to default font</string>
+    <string name="help">Help</string>
+    <string name="font_metadata_help_message">Short tap: Copy value.\nLong tap: Quick add custom axis/feature.\nFor built-in axes, long tap updates the slider range.</string>
+    <string name="metadata_axis_range_updated">Slider range updated</string>
 </resources>

@@ -45,7 +45,7 @@
         <Preference
             android:key="fontMetadata"
             android:title="@string/font_metadata"
-            android:iconSpaceReserved="false" />
+            android:icon="@drawable/ic_visibility_24" />
 
     </PreferenceCategory>
 

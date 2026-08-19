@@ -65,4 +65,7 @@ object Constants {
     
     // ── Font metadata ──
     const val PREF_FONT_METADATA = "fontMetadata"
+    
+    // ── External font intent flag ──
+    const val PREF_IS_EXTERNAL_FONT_OPEN = "is_external_font_open"
 }
