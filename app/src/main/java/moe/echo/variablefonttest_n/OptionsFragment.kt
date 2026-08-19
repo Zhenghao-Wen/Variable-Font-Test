@@ -49,7 +49,6 @@ import com.google.android.material.textfield.TextInputLayout
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.lang.SecurityException
 import kotlin.collections.MutableMap
 import kotlin.collections.contains
 import kotlin.collections.filter
@@ -73,6 +72,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         const val PREF_FEATURE_STATE = "pref_feature_state"
     }
 
+    private var fontMetadataPref: Preference? = null
     private val fontVariationSettings = mutableMapOf<String, String>()
     private val fontFeatureSettings = mutableMapOf<String, String>()
 
@@ -920,19 +920,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         // ── 查看字体元数据 ──
-        val fontMetadata: Preference? = findPreference(Constants.PREF_FONT_METADATA)
-        fontMetadata?.setOnPreferenceClickListener {
+        fontMetadataPref = findPreference(Constants.PREF_FONT_METADATA)
+        fontMetadataPref?.setOnPreferenceClickListener {
             showFontMetadataDialog()
             true
         }
 
-        // ── 动态更新"查看字体元数据"可见性 ──
-        fun updateMetadataVisibility() {
-            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-            val hasCustomFont = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null) != null
-                    && prefs.getString(Constants.PREF_FONT_FAMILY, null) == Constants.OPTION_CUSTOM_VALUE
-            fontMetadata?.isVisible = hasCustomFont
-        }
         updateMetadataVisibility()
 
         // ── 恢复字号和 TTC 索引（必须在字体加载前，确保 TTC 索引生效）──
@@ -1449,7 +1442,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         previewContent?.typeface = builder.build()
                         updateMetadataVisibility()
                         return@runOnUiThread
-                    } ?: {
+                    } ?: run {
                         Log.w(TAG, "changeFontFromUri: Failed to set font.")
                         Log.w(TAG, "changeFontFromUri: Uri: $uri")
                         Log.w(TAG, "changeFontFromUri: Uri?.path: ${uri.path}")
@@ -1708,6 +1701,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 tab.text = pages[position].first
             }.attach()
         }
+    }
+
+    private fun updateMetadataVisibility() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val hasCustomFont = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null) != null
+                && prefs.getString(Constants.PREF_FONT_FAMILY, null) == Constants.OPTION_CUSTOM_VALUE
+        fontMetadataPref?.isVisible = hasCustomFont
     }
 
     private fun formatAxisValue(v: Float): String =
