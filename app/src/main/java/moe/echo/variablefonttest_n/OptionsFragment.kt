@@ -163,9 +163,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 .setText(prefillName)
         }
         if (prefillType != null) {
-            autoCompleteTextView.setText(prefillType, false)
-            val pos = adapter.getPosition(prefillType)
-            if (pos >= 0) updateSeekBarFieldsVisibility(pos)
+            // 核心修复：通过底层 value (如 "seekBar") 反查当前语言的显示文本 (如 "滑块" / "Slider")
+            val index = typeValues.indexOf(prefillType)
+            if (index >= 0) {
+                val displayText = adapter.getItem(index).toString()
+                autoCompleteTextView.setText(displayText, false)
+                updateSeekBarFieldsVisibility(index)
+            }
         }
         if (prefillMin != null) seekBarMin.setText(prefillMin.toString())
         if (prefillMax != null) seekBarMax.setText(prefillMax.toString())
@@ -893,6 +897,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     setVariation(fontVariationSettings.toFeatures())
                     // 释放旧的自定义字体持久化权限
                     releaseCustomFontPermission()
+                    updateMetadataVisibility(newValue.toString())
                     true
                 }
                 newValue == Constants.OPTION_CUSTOM_VALUE -> {
@@ -901,7 +906,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         ttcIndex?.isEnabled = true
                     }
-                    updateMetadataVisibility()
+                    updateMetadataVisibility(newValue.toString())
                     true
                 }
                 else -> false
@@ -916,7 +921,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 "application/vnd.ms-opentype", "application/octet-stream",
                 "*/*"
             ))
-            updateMetadataVisibility()
             true
         }
 
@@ -1710,6 +1714,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
             .setPositiveButton(android.R.string.ok, null)
             .show()
 
+        // 兜底：强制移除 custom title 父容器的底部 padding
+        (titleView.parent as? android.view.View)?.let { parent ->
+            parent.setPadding(parent.paddingLeft, parent.paddingTop, parent.paddingRight, 0)
+        }
+
         // 延迟到 Dialog 布局稳定后再设置 adapter，
         // 避免进入动画期间 ViewPager2 宽度未定导致多页同时可见
         dialogView.post {
@@ -1720,11 +1729,17 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
     }
 
-    private fun updateMetadataVisibility() {
+    private fun updateMetadataVisibility(newFamilyValue: String? = null) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        val hasCustomFont = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null) != null
-                && prefs.getString(Constants.PREF_FONT_FAMILY, null) == Constants.OPTION_CUSTOM_VALUE
-        fontMetadataPref?.isVisible = hasCustomFont
+        val hasUri = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null) != null
+        
+        // 优先使用传入的新值（解决 listener 中 SP 尚未更新的问题），
+        // 其次读取 UI 控件当前值，最后回退到 SP（兼容初始化）
+        val familyValue = newFamilyValue 
+            ?: findPreference<ListPreference>(Constants.PREF_FONT_FAMILIES)?.value 
+            ?: prefs.getString(Constants.PREF_FONT_FAMILY, null)
+            
+        fontMetadataPref?.isVisible = hasUri && familyValue == Constants.OPTION_CUSTOM_VALUE
     }
 
     private fun formatAxisValue(v: Float): String =
