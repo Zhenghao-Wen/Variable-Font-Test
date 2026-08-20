@@ -1,5 +1,6 @@
 package moe.echo.variablefonttest_n
 
+import android.content.Intent
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -24,6 +25,28 @@ class MainActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // ── 处理外部文件管理器打开字体文件 Intent ──
+        if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
+            val uri = intent.data!!
+            val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+            prefs.edit()
+                .putString(Constants.PREF_CUSTOM_FONT_URI, uri.toString())
+                .putString(Constants.PREF_FONT_FAMILY, Constants.OPTION_CUSTOM_VALUE)
+                .putBoolean(Constants.PREF_IS_EXTERNAL_FONT_OPEN, true) // 标记外部打开，保护其他参数不被重置
+                .apply()
+            
+            // 尝试申请持久化权限（ACTION_VIEW 通常不授予，但尝试无妨，忽略异常）
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) { }
+            
+            // 清除 intent 数据，防止屏幕旋转等配置变更导致重复处理
+            intent.data = null
+            intent.action = null
+        }
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

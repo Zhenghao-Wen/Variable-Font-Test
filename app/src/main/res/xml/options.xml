@@ -42,6 +42,11 @@
             android:icon="@drawable/ic_baseline_open_in_new_24"
             android:iconSpaceReserved="false" />
 
+        <Preference
+            android:key="fontMetadata"
+            android:title="@string/font_metadata"
+            android:icon="@drawable/ic_visibility_24" />
+
     </PreferenceCategory>
 
     <!-- https://docs.microsoft.com/en-us/typography/opentype/spec/dvaraxisreg#registered-axis-tags -->

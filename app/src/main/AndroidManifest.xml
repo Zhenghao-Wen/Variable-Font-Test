@@ -16,6 +16,18 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 接收外部文件管理器打开字体文件 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="font/ttf" />
+                <data android:mimeType="font/otf" />
+                <data android:mimeType="font/ttc" />
+                <data android:mimeType="application/x-font-ttf" />
+                <data android:mimeType="application/x-font-otf" />
+                <data android:mimeType="application/vnd.ms-opentype" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
         </activity>
     </application>
 

@@ -1,4 +1,4 @@
-# Variable Font Test
+# Variable Font Test N (Fork)
 
 An Android app allow you input any words and adjust its OpenType features that using system font or any other one.
 
@@ -17,7 +17,9 @@ Full Material 3 UI&UX Improvements are included in the latest v4 app.
 
 # Preview
 
-![](doc/pics/variable-font-test-zh-rCN-v4.1.mp4)
+https://github.com/user-attachments/assets/50e2404a-0349-40e0-8c04-4e1ce2166568
+
+https://github.com/user-attachments/assets/f0252329-08fb-4a19-a250-fcf4a7689f04
 
 # Maintenance
 

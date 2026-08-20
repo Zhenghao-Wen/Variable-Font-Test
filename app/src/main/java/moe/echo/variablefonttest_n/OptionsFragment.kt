@@ -1,5 +1,7 @@
 package moe.echo.variablefonttest_n
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
@@ -10,11 +12,15 @@ import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -32,11 +38,15 @@ import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
 import androidx.preference.PreferenceManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -63,6 +73,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         const val PREF_FEATURE_STATE = "pref_feature_state"
     }
 
+    private var fontMetadataPref: Preference? = null
     private val fontVariationSettings = mutableMapOf<String, String>()
     private val fontFeatureSettings = mutableMapOf<String, String>()
 
@@ -74,7 +85,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private fun createAddPreferenceDialog(
         context: Context,
         preferences: PreferenceCategory,
-        setSetting: (tagName: String, value: String) -> Unit
+        setSetting: (tagName: String, value: String) -> Unit,
+        prefillName: String? = null,
+        prefillType: String? = null,
+        prefillMin: Float? = null,
+        prefillMax: Float? = null,
+        prefillStep: Float? = null
     ): androidx.appcompat.app.AlertDialog {
         val builder = MaterialAlertDialogBuilder(context)
         val dialogLayout = View.inflate(context, R.layout.add_preference_dialog, null)
@@ -140,6 +156,24 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 }
             }
         })
+
+        // ── 预填数据（用于长按快捷创建）──
+        if (prefillName != null) {
+            dialogLayout.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.tagName)
+                .setText(prefillName)
+        }
+        if (prefillType != null) {
+            // 核心修复：通过底层 value (如 "seekBar") 反查当前语言的显示文本 (如 "滑块" / "Slider")
+            val index = typeValues.indexOf(prefillType)
+            if (index >= 0) {
+                val displayText = adapter.getItem(index).toString()
+                autoCompleteTextView.setText(displayText, false)
+                updateSeekBarFieldsVisibility(index)
+            }
+        }
+        if (prefillMin != null) seekBarMin.setText(prefillMin.toString())
+        if (prefillMax != null) seekBarMax.setText(prefillMax.toString())
+        if (prefillStep != null) seekBarStep.setText(prefillStep.toString())
 
         builder.setView(dialogLayout)
         builder.setPositiveButton(android.R.string.ok, null)
@@ -461,11 +495,17 @@ class OptionsFragment : PreferenceFragmentCompat() {
             // 消费标志，防止下次启动误判
             prefs.edit().remove(Constants.PREF_IS_MODE_SWITCH).apply()
         }
+        
+        val isExternalOpen = prefs.getBoolean(Constants.PREF_IS_EXTERNAL_FONT_OPEN, false)
+        if (isExternalOpen) {
+            prefs.edit().remove(Constants.PREF_IS_EXTERNAL_FONT_OPEN).apply()
+        }
 
         // 模式切换：无条件恢复（SeekBar↔Slider 必须无缝）
         // 应用启动：仅在用户开启"下次启动不重置参数"时恢复
         val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
-        if (!isModeSwitch && !keepParams) {
+        // 如果是外部打开字体，强制保留其他参数（即使 keepParams 为 false）
+        if (!isModeSwitch && !keepParams && !isExternalOpen) {
             // 释放可能残留的自定义字体权限
             releaseCustomFontPermission()
             prefs.edit()
@@ -857,6 +897,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     setVariation(fontVariationSettings.toFeatures())
                     // 释放旧的自定义字体持久化权限
                     releaseCustomFontPermission()
+                    updateMetadataVisibility(newValue.toString())
                     true
                 }
                 newValue == Constants.OPTION_CUSTOM_VALUE -> {
@@ -865,6 +906,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         ttcIndex?.isEnabled = true
                     }
+                    updateMetadataVisibility(newValue.toString())
                     true
                 }
                 else -> false
@@ -881,6 +923,15 @@ class OptionsFragment : PreferenceFragmentCompat() {
             ))
             true
         }
+
+        // ── 查看字体元数据 ──
+        fontMetadataPref = findPreference(Constants.PREF_FONT_METADATA)
+        fontMetadataPref?.setOnPreferenceClickListener {
+            showFontMetadataDialog()
+            true
+        }
+
+        updateMetadataVisibility()
 
         // ── 恢复字号和 TTC 索引（必须在字体加载前，确保 TTC 索引生效）──
         val prefsForRestore = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -1172,10 +1223,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
         addVariation?.setOnPreferenceClickListener {
             if (variations != null) {
-                createAddPreferenceDialog(view.context, variations) { tagName, value ->
-                    fontVariationSettings[tagName] = value
-                    setVariation(fontVariationSettings.toFeatures())
-                }.apply {
+                createAddPreferenceDialog(
+                    context = view.context,
+                    preferences = variations,
+                    setSetting = { tagName, value ->
+                        fontVariationSettings[tagName] = value
+                        setVariation(fontVariationSettings.toFeatures())
+                    }
+                ).apply {
                     setTitle(R.string.add_font_variation)
                     show()
                 }
@@ -1274,10 +1329,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
         addFeature?.setOnPreferenceClickListener {
             if (fontFeatures != null) {
-                createAddPreferenceDialog(view.context, fontFeatures) { tagName, value ->
-                    fontFeatureSettings[tagName] = value
-                    previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
-                }.apply {
+                createAddPreferenceDialog(
+                    context = view.context,
+                    preferences = fontFeatures,
+                    setSetting = { tagName, value ->
+                        fontFeatureSettings[tagName] = value
+                        previewContent?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+                    }
+                ).apply {
                     setTitle(R.string.add_font_feature)
                     show()
                 }
@@ -1388,21 +1447,46 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 val ttcIndex: EditTextPreference? = findPreference(Constants.PREF_TTC_INDEX)
                 val ttcIndexValue = ttcIndex?.text?.toIntOrNull() ?: 0
 
-                activity?.contentResolver?.openFileDescriptor(uri, "r")?.use {
-                    val builder = Typeface.Builder(it.fileDescriptor)
-                    builder.setFontVariationSettings(fontVariationSettings.toFeatures())
-                    builder.setTtcIndex(ttcIndexValue)
-                    previewContent?.typeface = builder.build()
+                try {
+                    activity?.contentResolver?.openFileDescriptor(uri, "r")?.use {
+                        val builder = Typeface.Builder(it.fileDescriptor)
+                        builder.setFontVariationSettings(fontVariationSettings.toFeatures())
+                        builder.setTtcIndex(ttcIndexValue)
+                        previewContent?.typeface = builder.build()
+                        updateMetadataVisibility()
+                        return@runOnUiThread
+                    } ?: run {
+                        Log.w(TAG, "changeFontFromUri: Failed to set font.")
+                        Log.w(TAG, "changeFontFromUri: Uri: $uri")
+                        Log.w(TAG, "changeFontFromUri: Uri?.path: ${uri.path}")
+                        Log.w(TAG, "changeFontFromUri: activity == null? ${activity == null}")
+                        Log.w(
+                            TAG,
+                            "changeFontFromUri: activity?.contentResolver == null? ${activity?.contentResolver == null}"
+                        )
+                    }
+                } catch (e: SecurityException) {
+                    // 外部打开的字体权限过期，回退到默认字体
+                    val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    prefs.edit()
+                        .remove(Constants.PREF_CUSTOM_FONT_URI)
+                        .putString(Constants.PREF_FONT_FAMILY, "default")
+                        .apply()
+                    
+                    // 重新获取 UI 元素并更新
+                    findPreference<ListPreference>(Constants.PREF_FONT_FAMILIES)?.value = "default"
+                    findPreference<Preference>(Constants.PREF_CUSTOM_FONT)?.isVisible = false
+                    findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)?.isVisible = false
+                    
+                    val preview = parentFragment?.view?.findViewById<EditText>(R.id.preview_content)
+                    preview?.typeface = Typeface.DEFAULT
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        preview?.fontVariationSettings = fontVariationSettings.toFeatures()
+                    }
+                    
+                    updateMetadataVisibility()
+                    Toast.makeText(context, R.string.external_font_permission_expired, Toast.LENGTH_LONG).show()
                     return@runOnUiThread
-                } ?: {
-                    Log.w(TAG, "changeFontFromUri: Failed to set font.")
-                    Log.w(TAG, "changeFontFromUri: Uri: $uri")
-                    Log.w(TAG, "changeFontFromUri: Uri?.path: ${uri.path}")
-                    Log.w(TAG, "changeFontFromUri: activity == null? ${activity == null}")
-                    Log.w(
-                        TAG,
-                        "changeFontFromUri: activity?.contentResolver == null? ${activity?.contentResolver == null}"
-                    )
                 }
             } else {
                 val cacheDir = context?.cacheDir
@@ -1415,6 +1499,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     if (inputStream != null) {
                         copyStreamToFile(inputStream, font)
                         previewContent?.typeface = Typeface.createFromFile(font)
+                        updateMetadataVisibility()
                         return@runOnUiThread
                     } else {
                         Log.w(TAG, "changeFontFromUri: Failed to openInputStream to set font.")
@@ -1446,6 +1531,341 @@ class OptionsFragment : PreferenceFragmentCompat() {
             )
         } catch (_: Exception) { }
         prefs.edit().remove(Constants.PREF_CUSTOM_FONT_URI).apply()
+    }
+
+    // ══════════════════════════════════════════════
+    //  字体元数据弹窗
+    // ══════════════════════════════════════════════
+
+    private fun showFontMetadataDialog() {
+        val context = requireContext()
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val customFontUri = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null)
+
+        // 未选择自定义字体时提示
+        if (customFontUri == null) {
+            Toast.makeText(context, R.string.font_metadata_no_custom_font, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 读取当前 TTC 索引（与 changeFontFromUri 同源）
+        val ttcIndex = findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)
+            ?.text?.toIntOrNull() ?: 0
+
+        // 解析字体文件
+        val metadata = try {
+            context.contentResolver.openFileDescriptor(Uri.parse(customFontUri), "r")?.use { pfd ->
+                java.io.FileInputStream(pfd.fileDescriptor).use { fis ->
+                    FontMetadataParser.parse(fis, ttcIndex)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "showFontMetadataDialog: parse failed", e)
+            null
+        }
+
+        if (metadata == null) {
+            Toast.makeText(context, R.string.font_metadata_parse_error, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // ── 构建 4 页数据 ──
+        val pages: List<Pair<String, List<Pair<String, String>>>> = listOf(
+            // ① 名称与样式
+            getString(R.string.font_metadata_tab_names) to listOf(
+                getString(R.string.font_metadata_full_name) to metadata.nameInfo.fullName,
+                getString(R.string.font_metadata_family) to metadata.nameInfo.fontFamily,
+                getString(R.string.font_metadata_subfamily) to metadata.nameInfo.fontSubfamily,
+                getString(R.string.font_metadata_unique_id) to metadata.nameInfo.uniqueId,
+                getString(R.string.font_metadata_postscript) to metadata.nameInfo.postScriptName
+            ),
+            // ② 可变轴
+            getString(R.string.font_metadata_tab_axes) to metadata.axes.map { axis ->
+                "${axis.tag} (${axis.name})" to buildString {
+                    append("${getString(R.string.font_metadata_axis_min)}: ${formatAxisValue(axis.min)}")
+                    append("  ${getString(R.string.font_metadata_axis_default)}: ${formatAxisValue(axis.default)}")
+                    append("  ${getString(R.string.font_metadata_axis_max)}: ${formatAxisValue(axis.max)}")
+                }
+            }.ifEmpty { listOf(getString(R.string.font_metadata_no_axes) to "") },
+            // ③ OT 特性
+            getString(R.string.font_metadata_tab_features) to metadata.features.map { tag ->
+                tag to ""
+            }.ifEmpty { listOf(getString(R.string.font_metadata_no_features) to "") },
+            // ④ 版本与版权
+            getString(R.string.font_metadata_tab_version) to listOf(
+                getString(R.string.font_metadata_version) to metadata.nameInfo.version,
+                getString(R.string.font_metadata_manufacturer) to metadata.nameInfo.manufacturer,
+                getString(R.string.font_metadata_designer) to metadata.nameInfo.designer,
+                getString(R.string.font_metadata_copyright) to metadata.nameInfo.copyright
+            )
+        )
+
+        // ── 内置轴范围更新逻辑 ──
+        fun updateBuiltinAxisRange(axisTag: String, metaMin: Float?, metaMax: Float?) {
+            if (metaMin == null || metaMax == null) return
+            val key = when (axisTag) {
+                "ital" -> Constants.PREF_VARIATION_ITALIC
+                "opsz" -> Constants.PREF_VARIATION_OPTICAL_SIZE
+                "slnt" -> Constants.PREF_VARIATION_SLANT
+                "wdth" -> Constants.PREF_VARIATION_WIDTH
+                "wght" -> Constants.PREF_VARIATION_WEIGHT
+                else -> return
+            }
+            
+            val uiMin: Float
+            val uiMax: Float
+            when (axisTag) {
+                "ital", "opsz", "wdth" -> { uiMin = metaMin * 10f; uiMax = metaMax * 10f }
+                "slnt" -> { uiMin = metaMin + 90f; uiMax = metaMax + 90f }
+                "wght" -> { uiMin = metaMin; uiMax = metaMax }
+                else -> return
+            }
+            
+            val pref = findPreference<Preference>(key)
+            val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
+                
+            if (useMd3Slider && pref is SliderPreference) {
+                pref.valueFrom = uiMin
+                pref.valueTo = uiMax
+                pref.sliderValue = pref.sliderValue.coerceIn(uiMin, uiMax)
+            } else if (pref is SeekBarPreference) {
+                pref.min = uiMin.toInt()
+                pref.max = uiMax.toInt()
+                pref.value = pref.value.coerceIn(uiMin.toInt(), uiMax.toInt())
+            }
+            Toast.makeText(requireContext(), R.string.metadata_axis_range_updated, Toast.LENGTH_SHORT).show()
+        }
+
+        val onLongClickAction: (PageType, String, Float?, Float?) -> Boolean = { type, tag, min, max ->
+            when (type) {
+                PageType.AXIS -> {
+                    val builtinAxes = listOf("ital", "opsz", "slnt", "wdth", "wght")
+                    if (tag in builtinAxes) {
+                        updateBuiltinAxisRange(tag, min, max)
+                        true
+                    } else {
+                        val category = findPreference<PreferenceCategory>(Constants.PREF_CATEGORY_VARIATIONS)
+                        if (category != null) {
+                            val dialog = createAddPreferenceDialog(
+                                context = requireContext(), preferences = category,
+                                setSetting = { tagName, value ->
+                                    fontVariationSettings[tagName] = value
+                                    val preview = parentFragment?.view?.findViewById<EditText>(R.id.preview_content)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        preview?.fontVariationSettings = fontVariationSettings.toFeatures()
+                                    }
+                                    persistSettings()
+                                },
+                                prefillName = tag, prefillType = Constants.ADD_FEATURE_TYPE_SEEK_BAR,
+                                prefillMin = min ?: 0f, prefillMax = max ?: 100f, prefillStep = 0.1f
+                            )
+                            dialog.setTitle(R.string.add_font_variation)
+                            dialog.show()
+                        }
+                        true
+                    }
+                }
+                PageType.FEATURE -> {
+                    val builtinFeatures = listOf("chws", "halt", "frac")
+                    if (tag in builtinFeatures) {
+                        false // 内置特性长按无反应
+                    } else {
+                        val category = findPreference<PreferenceCategory>(Constants.PREF_CATEGORY_FONT_FEATURES)
+                        if (category != null) {
+                            val dialog = createAddPreferenceDialog(
+                                context = requireContext(), preferences = category,
+                                setSetting = { tagName, value ->
+                                    fontFeatureSettings[tagName] = value
+                                    val preview = parentFragment?.view?.findViewById<EditText>(R.id.preview_content)
+                                    preview?.fontFeatureSettings = fontFeatureSettings.toFeatures()
+                                    persistSettings()
+                                },
+                                prefillName = tag, prefillType = Constants.ADD_FEATURE_TYPE_SWITCH
+                            )
+                            dialog.setTitle(R.string.add_font_feature)
+                            dialog.show()
+                        }
+                        true
+                    }
+                }
+                else -> false
+            }
+        }
+
+        // ── 构建 Dialog ──
+        val dialogView = LayoutInflater.from(context)
+            .inflate(R.layout.dialog_font_metadata, null)
+        val tabLayout = dialogView.findViewById<TabLayout>(R.id.metadata_tab_layout)
+        val viewPager = dialogView.findViewById<ViewPager2>(R.id.metadata_view_pager)
+
+        // 直接从 dialogView 获取帮助按钮并设置点击事件
+        dialogView.findViewById<ImageView>(R.id.metadata_help_button).setOnClickListener {
+            MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.help)
+                .setMessage(R.string.font_metadata_help_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
+
+        // 不再使用 setCustomTitle，直接 setView
+        MaterialAlertDialogBuilder(context)
+            .setView(dialogView)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+
+        // 延迟到 Dialog 布局稳定后再设置 adapter，
+        // 避免进入动画期间 ViewPager2 宽度未定导致多页同时可见
+        dialogView.post {
+            viewPager.adapter = MetadataPagerAdapter(pages, metadata, onLongClickAction)
+            TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+                tab.text = pages[position].first
+            }.attach()
+        }
+    }
+
+    private fun updateMetadataVisibility(newFamilyValue: String? = null) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val hasUri = prefs.getString(Constants.PREF_CUSTOM_FONT_URI, null) != null
+        
+        // 优先使用传入的新值（解决 listener 中 SP 尚未更新的问题），
+        // 其次读取 UI 控件当前值，最后回退到 SP（兼容初始化）
+        val familyValue = newFamilyValue 
+            ?: findPreference<ListPreference>(Constants.PREF_FONT_FAMILIES)?.value 
+            ?: prefs.getString(Constants.PREF_FONT_FAMILY, null)
+            
+        fontMetadataPref?.isVisible = hasUri && familyValue == Constants.OPTION_CUSTOM_VALUE
+    }
+
+    private fun formatAxisValue(v: Float): String =
+        if (v == v.toLong().toFloat()) v.toLong().toString()
+        else String.format("%.2f", v)
+
+    private enum class PageType { AXIS, FEATURE, OTHER }
+
+    /** ViewPager2 适配器：每页一个纵向 RecyclerView */
+    private inner class MetadataPagerAdapter(
+        private val pages: List<Pair<String, List<Pair<String, String>>>>,
+        private val metadata: FontMetadataParser.Metadata,
+        private val onLongClickAction: (PageType, String, Float?, Float?) -> Boolean
+    ) : RecyclerView.Adapter<MetadataPagerAdapter.PageViewHolder>() {
+
+        inner class PageViewHolder(val rv: RecyclerView) : RecyclerView.ViewHolder(rv)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageViewHolder {
+            val rv = RecyclerView(parent.context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                layoutManager = LinearLayoutManager(parent.context)
+            }
+            return PageViewHolder(rv)
+        }
+
+        override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
+            val pageType = when (position) {
+                1 -> PageType.AXIS
+                2 -> PageType.FEATURE
+                else -> PageType.OTHER
+            }
+            holder.rv.adapter = MetadataEntryAdapter(
+                entries = pages[position].second,
+                // ② 可变轴页（index=1）：数值字号缩小至 75%
+                valueTextScale = if (position == 1) 0.75f else 1f,
+                // ④ OT 特性页（index=2）：空值不显示"—"，直接隐藏
+                hideEmptyValue = position == 2,
+                pageType = pageType,
+                axes = metadata.axes,
+                features = metadata.features,
+                onLongClickAction = onLongClickAction
+            )
+        }
+
+        override fun getItemCount() = pages.size
+    }
+
+    /**
+     * 属性条目适配器：标题小字 + 值大字，点击复制。
+     * @param valueTextScale 值文本缩放比例（1f = 原始大小，0.75f = 缩小 25%）
+     * @param hideEmptyValue 空值时是否隐藏 value 行（true = 隐藏，false = 显示"—"）
+     * @param pageType 页面类型（用于长按处理）
+     * @param axes 轴数据列表（用于长按获取轴信息）
+     * @param features 特性列表（用于长按获取特性标签）
+     * @param onLongClickAction 长按回调
+     */
+    private inner class MetadataEntryAdapter(
+        private val entries: List<Pair<String, String>>,
+        private val valueTextScale: Float = 1f,
+        private val hideEmptyValue: Boolean = false,
+        private val pageType: PageType = PageType.OTHER,
+        private val axes: List<FontMetadataParser.AxisInfo> = emptyList(),
+        private val features: List<String> = emptyList(),
+        private val onLongClickAction: (PageType, String, Float?, Float?) -> Boolean
+    ) : RecyclerView.Adapter<MetadataEntryAdapter.VH>() {
+
+        inner class VH(view: android.view.View) : RecyclerView.ViewHolder(view) {
+            val label: TextView = view.findViewById(R.id.metadata_entry_label)
+            val value: TextView = view.findViewById(R.id.metadata_entry_value)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_metadata_entry, parent, false)
+            return VH(view)
+        }
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val (label, value) = entries[position]
+            holder.label.text = label
+
+            // ── ④ 空值处理 ──
+            if (value.isEmpty()) {
+                if (hideEmptyValue) {
+                    holder.value.visibility = View.GONE
+                } else {
+                    holder.value.visibility = View.VISIBLE
+                    holder.value.text = "—"
+                }
+            } else {
+                holder.value.visibility = View.VISIBLE
+                holder.value.text = value
+            }
+
+            // ── ③ 字号缩放（可变轴页 75%）──
+            if (valueTextScale != 1f) {
+                val basePx = holder.value.textSize // 当前 px 值
+                holder.value.setTextSize(
+                    android.util.TypedValue.COMPLEX_UNIT_PX,
+                    basePx * valueTextScale
+                )
+            }
+
+            // ── ⑤ 复制逻辑：包含标题 ──
+            holder.itemView.setOnClickListener { v ->
+                val copyText = if (value.isEmpty()) label else "$label: $value"
+                val cm = v.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText(label, copyText))
+                Toast.makeText(v.context, R.string.font_metadata_copied, Toast.LENGTH_SHORT).show()
+            }
+
+            // ── ⑥ 长按处理 ──
+            holder.itemView.setOnLongClickListener {
+                when (pageType) {
+                    PageType.AXIS -> {
+                        val axis = axes.getOrNull(position) ?: return@setOnLongClickListener false
+                        onLongClickAction(PageType.AXIS, axis.tag, axis.min, axis.max)
+                    }
+                    PageType.FEATURE -> {
+                        val tag = features.getOrNull(position) ?: return@setOnLongClickListener false
+                        onLongClickAction(PageType.FEATURE, tag, null, null)
+                    }
+                    else -> false
+                }
+            }
+        }
+
+        override fun getItemCount() = entries.size
     }
 }
 

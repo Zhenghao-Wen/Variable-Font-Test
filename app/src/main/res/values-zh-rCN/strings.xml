@@ -73,4 +73,32 @@
 
     <!-- Step value too small error message -->
     <string name="step_value_too_small">步进值太小（最小 0.001）</string>
+
+    <!-- Font Metadata -->
+    <string name="font_metadata">查看字体元数据</string>
+    <string name="font_metadata_no_custom_font">请先选择自定义字体</string>
+    <string name="font_metadata_parse_error">字体元数据解析失败</string>
+    <string name="font_metadata_copied">已复制到剪贴板</string>
+    <string name="font_metadata_tab_names">名称与样式</string>
+    <string name="font_metadata_tab_axes">可变轴</string>
+    <string name="font_metadata_tab_features">OT 特性</string>
+    <string name="font_metadata_tab_version">版本与版权</string>
+    <string name="font_metadata_full_name">完整名称</string>
+    <string name="font_metadata_family">字体族</string>
+    <string name="font_metadata_subfamily">字体子族</string>
+    <string name="font_metadata_unique_id">唯一子族标识</string>
+    <string name="font_metadata_postscript">PostScript 名称</string>
+    <string name="font_metadata_no_axes">未发现可变轴</string>
+    <string name="font_metadata_axis_min">最小值</string>
+    <string name="font_metadata_axis_default">默认值</string>
+    <string name="font_metadata_axis_max">最大值</string>
+    <string name="font_metadata_no_features">未发现 OpenType 特性</string>
+    <string name="font_metadata_version">版本</string>
+    <string name="font_metadata_manufacturer">制造商</string>
+    <string name="font_metadata_designer">设计师</string>
+    <string name="font_metadata_copyright">版权</string>
+    <string name="external_font_permission_expired">外部打开的字体权限已过期，已回退到默认字体</string>
+    <string name="help">帮助</string>
+    <string name="font_metadata_help_message">短按：复制值。\n长按：快速添加自定义轴/特性。\n对于内置轴，长按将更新滑块范围。</string>
+    <string name="metadata_axis_range_updated">滑块范围已更新</string>
 </resources>
