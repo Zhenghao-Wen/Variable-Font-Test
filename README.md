@@ -15,9 +15,11 @@ Full Material 3 UI&UX Improvements are included in the latest v4 app.
 > 
 > Google Play is definitely not being considered.
 
-# Preview (v4.1)
+# Preview
 
 https://github.com/user-attachments/assets/50e2404a-0349-40e0-8c04-4e1ce2166568
+
+https://github.com/user-attachments/assets/f0252329-08fb-4a19-a250-fcf4a7689f04
 
 # Maintenance
 
