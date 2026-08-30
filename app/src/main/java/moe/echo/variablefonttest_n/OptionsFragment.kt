@@ -1714,14 +1714,22 @@ class OptionsFragment : PreferenceFragmentCompat() {
             .setPositiveButton(android.R.string.ok, null)
             .show()
 
-        // 延迟到 Dialog 布局稳定后再设置 adapter，
-        // 避免进入动画期间 ViewPager2 宽度未定导致多页同时可见
-        dialogView.post {
-            viewPager.adapter = MetadataPagerAdapter(pages, metadata, onLongClickAction)
-            TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-                tab.text = pages[position].first
-            }.attach()
-        }
+        // 使用 OnGlobalLayoutListener 确保 ViewPager2 宽度计算完成后再设置 adapter
+        // （post {} 在平板大屏布局未完成时会提前执行，导致分页失效）
+        viewPager.viewTreeObserver.addOnGlobalLayoutListener(
+            object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    // 仅在宽度真正就绪后执行，避免布局未完成时提前绑定
+                    if (viewPager.width > 0) {
+                        viewPager.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        viewPager.adapter = MetadataPagerAdapter(pages, metadata, onLongClickAction)
+                        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+                            tab.text = pages[position].first
+                        }.attach()
+                    }
+                }
+            }
+        )
     }
 
     private fun updateMetadataVisibility(newFamilyValue: String? = null) {
