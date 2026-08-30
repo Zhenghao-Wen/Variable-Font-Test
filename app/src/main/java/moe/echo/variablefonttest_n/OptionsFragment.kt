@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -1758,17 +1759,28 @@ class OptionsFragment : PreferenceFragmentCompat() {
         private val onLongClickAction: (PageType, String, Float?, Float?) -> Boolean
     ) : RecyclerView.Adapter<MetadataPagerAdapter.PageViewHolder>() {
 
-        inner class PageViewHolder(val rv: RecyclerView) : RecyclerView.ViewHolder(rv)
+        inner class PageViewHolder(val container: FrameLayout) : RecyclerView.ViewHolder(container) {
+            val rv: RecyclerView = container.getChildAt(0) as RecyclerView
+        }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageViewHolder {
+            // 创建内容列表
             val rv = RecyclerView(parent.context).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                layoutManager = LinearLayoutManager(parent.context)
+            }
+            // 使用 FrameLayout 包裹，确保页面宽度为 MATCH_PARENT
+            val frame = FrameLayout(parent.context).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                layoutManager = LinearLayoutManager(parent.context)
+                addView(rv)
             }
-            return PageViewHolder(rv)
+            return PageViewHolder(frame)
         }
 
         override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
