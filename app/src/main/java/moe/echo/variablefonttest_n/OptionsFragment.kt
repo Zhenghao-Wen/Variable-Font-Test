@@ -666,7 +666,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             isPersistent = false
                             isChecked = fontFeatureSettings[key] == "1"
                             setOnPreferenceChangeListener { _, _ ->
-                                fontFeatureSettings[key] = if (!isChecked) "1" else "0"
+                                setSetting(key, if (!isChecked) "1" else "0")
                                 persistSettings()
                                 true
                             }
@@ -695,8 +695,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                 setOnPreferenceChangeListener { _, newValue ->
                                     val v = newValue.toString().toFloatOrNull()
                                     if (v != null) {
-                                        fontVariationSettings[key] = v.toString()
-                                        applyVariation(fontVariationSettings.toFeatures())
+                                        setSetting(key, v.toString())
                                         persistSettings()
                                         true
                                     } else false
@@ -715,8 +714,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                                 setOnPreferenceChangeListener { _, newValue ->
                                     val v = newValue.toString().toFloatOrNull()
                                     if (v != null) {
-                                        fontVariationSettings[key] = v.toString()
-                                        applyVariation(fontVariationSettings.toFeatures())
+                                        setSetting(key, v.toString())
                                         persistSettings()
                                         true
                                     } else false
@@ -732,8 +730,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             isPersistent = false
                             text = fontVariationSettings[key] ?: fontFeatureSettings[key]
                             setOnPreferenceChangeListener { _, newValue ->
-                                fontVariationSettings[key] = newValue.toString()
-                                applyVariation(fontVariationSettings.toFeatures())
+                                setSetting(key, newValue.toString())
                                 persistSettings()
                                 true
                             }
