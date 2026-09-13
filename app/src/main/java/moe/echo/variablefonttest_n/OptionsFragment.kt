@@ -1715,14 +1715,23 @@ class OptionsFragment : PreferenceFragmentCompat() {
             .setPositiveButton(android.R.string.ok, null)
             .show()
 
-        // 使用 OnGlobalLayoutListener 确保 ViewPager2 宽度计算完成后再设置 adapter
-        // （post {} 在平板大屏布局未完成时会提前执行，导致分页失效）
+        // 使用 OnGlobalLayoutListener 确保布局完成后再设置 adapter
         viewPager.viewTreeObserver.addOnGlobalLayoutListener(
             object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
                 override fun onGlobalLayout() {
-                    // 仅在宽度真正就绪后执行，避免布局未完成时提前绑定
-                    if (viewPager.width > 0) {
+                    // 仅在 dialogView 宽度真正就绪后执行
+                    if (dialogView.width > 0) {
                         viewPager.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        
+                        // 核心修复：强制设置 ViewPager2 宽度为 dialogView 的实际宽度
+                        // 解决平板上父容器宽度为 UNSPECIFIED 导致分页失效的问题
+                        viewPager.layoutParams = viewPager.layoutParams.apply {
+                            width = dialogView.width
+                        }
+                        
+                        // 限制预加载页面数为 1，避免平板上渲染过多页面
+                        viewPager.offscreenPageLimit = 1
+                        
                         viewPager.adapter = MetadataPagerAdapter(pages, metadata, onLongClickAction)
                         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
                             tab.text = pages[position].first
@@ -1759,28 +1768,17 @@ class OptionsFragment : PreferenceFragmentCompat() {
         private val onLongClickAction: (PageType, String, Float?, Float?) -> Boolean
     ) : RecyclerView.Adapter<MetadataPagerAdapter.PageViewHolder>() {
 
-        inner class PageViewHolder(val container: FrameLayout) : RecyclerView.ViewHolder(container) {
-            val rv: RecyclerView = container.getChildAt(0) as RecyclerView
-        }
+        inner class PageViewHolder(val rv: RecyclerView) : RecyclerView.ViewHolder(rv)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageViewHolder {
-            // 创建内容列表
             val rv = RecyclerView(parent.context).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                )
-                layoutManager = LinearLayoutManager(parent.context)
-            }
-            // 使用 FrameLayout 包裹，确保页面宽度为 MATCH_PARENT
-            val frame = FrameLayout(parent.context).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                addView(rv)
+                layoutManager = LinearLayoutManager(parent.context)
             }
-            return PageViewHolder(frame)
+            return PageViewHolder(rv)
         }
 
         override fun onBindViewHolder(holder: PageViewHolder, position: Int) {
