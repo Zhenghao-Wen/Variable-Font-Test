@@ -1,3 +1,5 @@
+English / [简体中文](README-zh-rCN.md) / [正體中文](README-zh-rTW.md)
+
 # Variable Font Test N (Fork)
 
 An Android app allow you input any words and adjust its OpenType features that using system font or any other one.
@@ -11,8 +13,8 @@ Full Material 3 UI&UX Improvements are included in the latest v4 app.
     <img src="doc/pics/badge-github.png" alt="Get it on GitHub" height="60" /></a>
 </p>
 
-> We welcome your help in publishing it to any open-source app store. 
-> 
+> We welcome your help in publishing it to any open-source app store.
+>
 > Google Play is definitely not being considered.
 
 # Preview

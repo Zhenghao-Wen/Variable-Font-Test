@@ -2,6 +2,8 @@
 
 This project uses the following open source libraries and components.
 We thank all the developers and contributors for their wonderful work.
+Thanks to DeepSeek Harness and Android Studio for providing an unparalleled development experience.
+Thanks to GitHub for providing code hosting and Actions build services.
 
 ---
 
@@ -109,4 +111,4 @@ Special thanks to:
 
 ---
 
-*Last updated: 2026 Summer*
+*Last updated: 2026 September*
