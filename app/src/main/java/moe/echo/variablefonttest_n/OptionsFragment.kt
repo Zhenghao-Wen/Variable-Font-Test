@@ -72,6 +72,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private companion object {
         const val PREF_VARIATION_STATE = "pref_variation_state"
         const val PREF_FEATURE_STATE = "pref_feature_state"
+
+        /**
+         * 进程级冷启动标志。
+         * - 进程首次创建时为 true（冷启动）
+         * - 配置变更（小窗/分屏/旋转）时进程存活，此值保持 false
+         * - 进程被杀后重新打开时，JVM 重置此值为 true
+         */
+        private var sIsColdStart = true
     }
 
     private var fontMetadataPref: Preference? = null
@@ -505,8 +513,21 @@ class OptionsFragment : PreferenceFragmentCompat() {
         // 模式切换：无条件恢复（SeekBar↔Slider 必须无缝）
         // 应用启动：仅在用户开启"下次启动不重置参数"时恢复
         val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
+
+        // ── 核心修复：区分冷启动与进程内重建（配置变更）──
+        val isColdStart = sIsColdStart
+        if (isColdStart) {
+            sIsColdStart = false // 标记进程已启动，后续配置变更不再视为冷启动
+        }
+
+        // 仅在以下条件同时满足时重置：
+        // 1. 冷启动（进程被杀后重新打开）
+        // 2. 未开启"保持现状"
+        // 3. 非模式切换
+        // 4. 非外部字体打开
+        // 配置变更（小窗/分屏/旋转）时 isColdStart=false，永不重置
         // 如果是外部打开字体，强制保留其他参数（即使 keepParams 为 false）
-        if (!isModeSwitch && !keepParams && !isExternalOpen) {
+        if (isColdStart && !keepParams && !isModeSwitch && !isExternalOpen) {
             // 释放可能残留的自定义字体权限
             releaseCustomFontPermission()
             prefs.edit()
