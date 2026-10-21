@@ -51,6 +51,19 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
         }
+
+        // 带 R8 的产物：其余配置与 release 保持一致（同样的签名、混淆规则、Splits），
+        // 仅额外开启代码压缩与资源压缩，以提供体积更小的安装包。
+        // 产物：app-universal-r8.apk 以及对应的 ABI 拆分包。
+        create("r8") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
