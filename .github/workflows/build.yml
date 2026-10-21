@@ -69,38 +69,67 @@ jobs:
           path: app/build/outputs/apk/r8/app-universal-r8.apk
           if-no-files-found: error
 
-      - name: Prepare release metadata
+      - name: Prepare release metadata & notes
         id: meta
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          INPUT_REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
           VERSION="$(echo "$INPUT_VERSION" | xargs)"
           if [ -z "$VERSION" ]; then
             SUFFIX="nightly"
-            echo "is_nightly=true" >> "$GITHUB_OUTPUT"
-            echo "tag=nightly" >> "$GITHUB_OUTPUT"
-            echo "name=Nightly" >> "$GITHUB_OUTPUT"
-            echo "apk_suffix=$SUFFIX" >> "$GITHUB_OUTPUT"
+            IS_NIGHTLY="true"
+            TAG="nightly"
+            NAME="Nightly"
           else
+            SUFFIX="$VERSION"
+            IS_NIGHTLY="false"
             TAG="$VERSION"
             case "$TAG" in
               v*) ;;
               *) TAG="v$TAG" ;;
             esac
-            SUFFIX="$VERSION"
-            echo "is_nightly=false" >> "$GITHUB_OUTPUT"
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "name=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "apk_suffix=$SUFFIX" >> "$GITHUB_OUTPUT"
+            NAME="$VERSION"
           fi
+          {
+            echo "is_nightly=$IS_NIGHTLY"
+            echo "tag=$TAG"
+            echo "name=$NAME"
+            echo "apk_suffix=$SUFFIX"
+          } >> "$GITHUB_OUTPUT"
 
           mkdir -p release-assets
           cp app/build/outputs/apk/release/app-universal-release.apk \
              "release-assets/VariableFontTest-$SUFFIX-universal.apk"
           cp app/build/outputs/apk/r8/app-universal-r8.apk \
              "release-assets/VariableFontTest-$SUFFIX-universal-r8.apk"
+          ( cd release-assets && sha256sum *.apk > SHA256SUMS.txt )
           ls -lh release-assets
+
+          # Release notes: English, always starting with the warning alert
+          cat > release-notes.md <<'WARNING_EOF'
+          > [!WARNING]
+          > This release uses a different package name suffix `_n` and application name suffix `N` to distinguish it from the original.
+          >
+          > Since I used a public signature, you must check the SHA256 of the apk file before using it.
+          WARNING_EOF
+
+          printf '\n' >> release-notes.md
+          if [ "$IS_NIGHTLY" = "true" ]; then
+            printf 'Automated nightly build from branch/tag `%s` (commit `%s`).\n\n' "$INPUT_REF" "$GITHUB_SHA" >> release-notes.md
+          else
+            printf 'Release `%s`, built from branch/tag `%s` (commit `%s`).\n\n' "$VERSION" "$INPUT_REF" "$GITHUB_SHA" >> release-notes.md
+          fi
+          printf '### Assets\n\n' >> release-notes.md
+          printf -- '- `%s` — universal APK without R8\n' "VariableFontTest-$SUFFIX-universal.apk" >> release-notes.md
+          printf -- '- `%s` — universal APK with R8 (smaller)\n' "VariableFontTest-$SUFFIX-universal-r8.apk" >> release-notes.md
+          printf -- '- `SHA256SUMS.txt` — SHA256 checksums of the APKs\n\n' >> release-notes.md
+          printf 'Workflow run: %s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> release-notes.md
+          if [ "$IS_NIGHTLY" = "true" ]; then
+            printf '\n> This is a rolling nightly release; every new nightly build replaces this one.\n' >> release-notes.md
+          fi
+          cat release-notes.md
 
       - name: Delete previous nightly release
         if: ${{ inputs.publish_release && steps.meta.outputs.is_nightly == 'true' }}
@@ -116,9 +145,9 @@ jobs:
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.name }}
-          generate_release_notes: true
+          body_path: release-notes.md
           fail_on_unmatched_files: true
-          files: release-assets/*.apk
+          files: release-assets/*
 
       - name: Publish nightly Release
         if: ${{ inputs.publish_release && steps.meta.outputs.is_nightly == 'true' }}
@@ -127,13 +156,6 @@ jobs:
           tag_name: nightly
           name: Nightly
           prerelease: true
+          body_path: release-notes.md
           fail_on_unmatched_files: true
-          files: release-assets/*.apk
-          body: |
-            自动构建的 nightly 版本。
-
-            - 源码分支: `${{ inputs.ref }}`
-            - 提交: `${{ github.sha }}`
-            - 构建任务: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-            > nightly 为滚动发布，每次构建都会覆盖此 Release。
+          files: release-assets/*
