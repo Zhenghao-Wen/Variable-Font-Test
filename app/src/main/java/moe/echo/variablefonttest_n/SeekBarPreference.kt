@@ -36,7 +36,9 @@ class SeekBarPreference @JvmOverloads constructor(
         val seekBar = view.findViewById(androidx.preference.R.id.seekbar) as? SeekBar ?: return
         val primaryColor = MaterialColors.getColor(
             seekBar.context,
-            com.google.android.material.R.attr.colorPrimary,
+            // Material 1.13.0 起不再重复声明 colorPrimary 属性（R.attr.colorPrimary 被移除），
+            // 该属性由 AppCompat 提供，主题中设置的也是同一个 attr。
+            androidx.appcompat.R.attr.colorPrimary,
             Color.MAGENTA
         )
         val primaryColorStateList = ColorStateList.valueOf(primaryColor)
