@@ -39,6 +39,8 @@ https://github.com/user-attachments/assets/f0252329-08fb-4a19-a250-fcf4a7689f04
 
 [翻譯人員（zh-rTW）](TRANSLATORS.md)
 
+> 由於應用程式使用了一些機器翻譯，我們歡迎翻譯人員幫助審核和校正翻譯。
+
 <details>
 
 <summary>更多</summary>

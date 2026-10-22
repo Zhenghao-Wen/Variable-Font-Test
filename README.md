@@ -39,6 +39,8 @@ We thank all the developers and contributors for their wonderful work.
 
 [Translators (zh-rTW)](TRANSLATORS.md)
 
+> Since the app uses some machine translation, we welcome translators to help review and correct translations.
+
 <details>
 
 <summary>More</summary>

@@ -39,6 +39,8 @@ https://github.com/user-attachments/assets/f0252329-08fb-4a19-a250-fcf4a7689f04
 
 [译者（zh-rTW）](TRANSLATORS.md)
 
+> 由于应用使用了一些机器翻译，我们欢迎译者帮助审核和校正翻译。
+
 <details>
 
 <summary>更多</summary>
