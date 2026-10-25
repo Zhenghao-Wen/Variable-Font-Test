@@ -63,6 +63,13 @@ class SliderPreference @JvmOverloads constructor(
         const val WGHT_ASSEMBLY_SHIFT_DP = 16f
         /** 非 wght/自定义右端右移量：右端留距 = W − 此值（W 为数值区宽度） */
         const val OTHER_RIGHT_SHIFT_DP = 16f
+
+        /**
+         * Material Components 1.13.0 起 Slider 轨道左右两端各向内缩进 4dp
+         * （1.12.0 无此行为，SeekBar 亦不受影响）。
+         * 将 Slider 视图两端各向外扩同样的距离，抵消这次库升级带来的边距收缩。
+         */
+        const val MDC_113_TRACK_INSET_COMP_DP = 4f
     }
 
     init {
@@ -127,17 +134,21 @@ class SliderPreference @JvmOverloads constructor(
                 val density = s.resources.displayMetrics.density
                 val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()
                 val otherRightShiftPx = (OTHER_RIGHT_SHIFT_DP * density).toInt()
+                // Material 1.13.0 轨道两端各内缩 4dp，视图两端同步外扩以补足边距
+                val insetCompPx = (MDC_113_TRACK_INSET_COMP_DP * density).toInt()
                 // 数值区宽度 W（与改动 2 中设置的 width 同口径），供非 wght 右端留距计算
                 val valueTextWidth = valueText?.let { tv ->
                     (tv.paint.measureText("1000") + (tv.paddingStart + tv.paddingEnd) + 2 * density).toInt()
                 } ?: 0
                 (s.layoutParams as? android.widget.LinearLayout.LayoutParams)?.let { lp ->
-                    // 左端：全部滑块右移 LEFT_SHIFT_DP
-                    lp.marginStart = -(inset - leftShiftPx)
+                    // 左端：全部滑块右移 LEFT_SHIFT_DP；再外扩 4dp 补足 1.13 的收缩
+                    lp.marginStart = -(inset - leftShiftPx) - insetCompPx
                     // 右端：
                     //   wght   → -inset，轨道右缘贴合数值文字左缘（整组已由改动 2 的 marginEnd 左移）
                     //   非 wght → 留距 = W - OTHER_RIGHT_SHIFT_DP
-                    lp.marginEnd = if (showLabel) -inset else (valueTextWidth - otherRightShiftPx - inset)
+                    lp.marginEnd =
+                        (if (showLabel) -inset else (valueTextWidth - otherRightShiftPx - inset)) -
+                            insetCompPx
                     s.layoutParams = lp
                 }
             }
