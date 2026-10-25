@@ -2,11 +2,9 @@ package moe.echo.variablefonttest_n
 
 import android.content.Context
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
 import com.google.android.material.slider.LabelFormatter
@@ -183,47 +181,6 @@ class SliderPreference @JvmOverloads constructor(
                 tv.visibility = View.GONE
             }
         }
-
-        // TODO: 临时诊断，定位 4dp 问题后删除
-        logSliderDiagnostics(s, vt)
-    }
-
-    // TODO: 临时诊断，定位 4dp 问题后删除
-    private fun logSliderDiagnostics(s: Slider, vt: TextView?) {
-        s.postDelayed({
-            val inset = try {
-                s.trackSidePadding
-            } catch (_: Throwable) {
-                -1
-            }
-            val corner = try {
-                s.trackCornerSize
-            } catch (_: Throwable) {
-                0
-            }
-            val parent = s.parent as? View
-            val row = parent?.parent as? View
-            val item = row?.parent as? View
-            val loc = IntArray(2)
-            s.getLocationInWindow(loc)
-            val lp = s.layoutParams as? android.view.ViewGroup.MarginLayoutParams
-            val msg = "Slider key=$key showLabel=$showLabel " +
-                "density=${s.resources.displayMetrics.density} " +
-                "w=${s.width} h=${s.height} left=${s.left} right=${s.right} screenX=${loc[0]} " +
-                "trackLeft=${loc[0] + inset} trackRight=${loc[0] + s.width - inset} " +
-                "visibleTrackLeft=${loc[0] + inset - corner} visibleTrackRight=${loc[0] + s.width - inset + corner} " +
-                "trackCornerSize=$corner " +
-                "padding=${s.paddingLeft}/${s.paddingRight} trackSidePadding=$inset " +
-                "trackWidth=${s.width - 2 * inset} " +
-                "lp={w=${lp?.width}, start=${lp?.marginStart}, end=${lp?.marginEnd}} " +
-                "parentW=${parent?.width} rowW=${row?.width} itemW=${item?.width} " +
-                "itemPad=${item?.paddingLeft}/${item?.paddingRight} rootW=${s.rootView.width} " +
-                "valueText={w=${vt?.width}, left=${vt?.left}, right=${vt?.right}, vis=${vt?.visibility}}"
-            Log.d("VFT_DIAG", msg)
-            if (key == Constants.PREF_VARIATION_WEIGHT) {
-                Toast.makeText(s.context, msg, Toast.LENGTH_LONG).show()
-            }
-        }, 600)
     }
 
     override fun onSetInitialValue(defaultValue: Any?) {

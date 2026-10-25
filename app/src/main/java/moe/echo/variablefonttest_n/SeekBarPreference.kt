@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Gravity
 import android.widget.SeekBar
 import android.widget.TextView
@@ -70,23 +69,5 @@ class SeekBarPreference @JvmOverloads constructor(
             }
             tv.gravity = Gravity.CENTER
         }
-
-        // TODO: 临时诊断，定位 4dp 问题后删除
-        seekBar.postDelayed({
-            val parent = seekBar.parent as? android.view.View
-            val row = parent?.parent as? android.view.View
-            val item = row?.parent as? android.view.View
-            val loc = IntArray(2)
-            seekBar.getLocationInWindow(loc)
-            val msg = "SeekBar key=$key " +
-                "density=${seekBar.resources.displayMetrics.density} " +
-                "w=${seekBar.width} h=${seekBar.height} left=${seekBar.left} right=${seekBar.right} screenX=${loc[0]} " +
-                "trackLeft=${loc[0] + seekBar.paddingLeft} trackRight=${loc[0] + seekBar.width - seekBar.paddingRight} " +
-                "padding=${seekBar.paddingLeft}/${seekBar.paddingRight} " +
-                "thumbOffset=${seekBar.thumbOffset} progress=${seekBar.progress}/${seekBar.max} " +
-                "parentW=${parent?.width} rowW=${row?.width} itemW=${item?.width} " +
-                "itemPad=${item?.paddingLeft}/${item?.paddingRight} rootW=${seekBar.rootView.width}"
-            Log.d("VFT_DIAG", msg)
-        }, 600)
     }
 }
