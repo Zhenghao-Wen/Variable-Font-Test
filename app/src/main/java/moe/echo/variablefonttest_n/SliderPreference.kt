@@ -9,7 +9,6 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
 import com.google.android.material.slider.LabelFormatter
 import com.google.android.material.slider.Slider
-import java.lang.reflect.Field
 import kotlin.math.pow
 
 /**
@@ -59,7 +58,7 @@ class SliderPreference @JvmOverloads constructor(
 
         /**
          * TickVisibilityMode.TICK_VISIBILITY_HIDDEN = 2。
-         * 该注解同样是 @Retention(SOURCE)，运行时不可引用，故用本地常量。
+         * 该注解是 @Retention(SOURCE)，运行时不可引用，故用本地常量。
          */
         const val TICK_VISIBILITY_HIDDEN = 2
 
@@ -70,13 +69,6 @@ class SliderPreference @JvmOverloads constructor(
         const val WGHT_ASSEMBLY_SHIFT_DP = 16f
         /** 非 wght/自定义右端右移量：右端留距 = W − 此值（W 为数值区宽度） */
         const val OTHER_RIGHT_SHIFT_DP = 16f
-
-        /**
-         * Material Components 1.13.0 起 Slider 轨道左右两端各向内缩进 4dp
-         * （1.12.0 无此行为，SeekBar 亦不受影响）。
-         * 直接缩小 Slider 内部的 trackSidePadding，使轨道在控件内部向两端各补回 4dp。
-         */
-        const val MDC_113_TRACK_INSET_COMP_DP = 4f
     }
 
     init {
@@ -125,8 +117,18 @@ class SliderPreference @JvmOverloads constructor(
         // 第一步：负 margin 抵消 trackSidePadding 内缩——左缘对齐标题左缘、
         //         wght 右缘贴合数值区、其余右缘回退一个 inset（与 wght 数值区留距观感一致）。
         // 第二步：两端各加 δ 呼吸间距——左端右移 δ、其余右端再左移 δ（wght 右端贴合数值区，不加 δ）。
-        findField(s, "trackSidePadding")?.let { insetField ->
-            val inset = insetField.getInt(s)
+        try {
+            var cls: Class<*>? = s.javaClass
+            var inset = 0
+            while (cls != null) {
+                try {
+                    val f = cls.getDeclaredField("trackSidePadding")
+                    f.isAccessible = true
+                    inset = f.getInt(s)
+                    break
+                } catch (_: Exception) { }
+                cls = cls.superclass
+            }
             if (inset > 0) {
                 val density = s.resources.displayMetrics.density
                 val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()
@@ -144,25 +146,8 @@ class SliderPreference @JvmOverloads constructor(
                     lp.marginEnd = if (showLabel) -inset else (valueTextWidth - otherRightShiftPx - inset)
                     s.layoutParams = lp
                 }
-
-                // 1.13.0 的轨道在控件内部又向两端各缩了 4dp；直接缩小 trackSidePadding，
-                // 让轨道向两端各补回 4dp，同时保持上面的视图边界对齐不变。
-                val insetCompPx = (MDC_113_TRACK_INSET_COMP_DP * density).toInt()
-                if (insetCompPx > 0 && inset > insetCompPx) {
-                    val newInset = inset - insetCompPx
-                    insetField.setInt(s, newInset)
-
-                    // 已回收的 View 不会再次触发 onSizeChanged，需同步修正 trackWidth。
-                    val width = s.width
-                    if (width > 0) {
-                        findField(s, "trackWidth")?.let { trackWidthField ->
-                            trackWidthField.setInt(s, maxOf(width - 2 * newInset, 0))
-                        }
-                    }
-                    s.invalidate()
-                }
             }
-        }
+        } catch (_: Exception) { }
 
         // ── 设置当前值（无 listener，安全）──
         s.value = sliderValue.coerceIn(valueFrom, valueTo)
@@ -218,20 +203,6 @@ class SliderPreference @JvmOverloads constructor(
     override fun onDependencyChanged(dependency: Preference, disableDependent: Boolean) {
         super.onDependencyChanged(dependency, disableDependent)
         slider?.isEnabled = !disableDependent
-    }
-
-    /** 在 Slider 及其父类层级中查找私有字段（trackSidePadding 等为 BaseSlider 私有字段）。 */
-    private fun findField(view: View, name: String): Field? {
-        var cls: Class<*>? = view.javaClass
-        while (cls != null) {
-            try {
-                val field = cls.getDeclaredField(name)
-                field.isAccessible = true
-                return field
-            } catch (_: Exception) { }
-            cls = cls.superclass
-        }
-        return null
     }
 
     private fun formatValue(v: Float): String {
