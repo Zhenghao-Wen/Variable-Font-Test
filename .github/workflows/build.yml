@@ -128,7 +128,7 @@ jobs:
           if [ "$IS_NIGHTLY" = "true" ]; then
             printf 'Automated nightly build from branch/tag `%s` (commit `%s`).\n\n' "$INPUT_REF" "$GITHUB_SHA" >> release-notes.md
           else
-            printf 'Release `%s`, built from branch/tag `%s` (commit `%s`).\n\n' "$VERSION" "$INPUT_REF" "$GITHUB_SHA" >> release-notes.md
+            printf 'Release `%s-%s`, built from branch/tag `%s`\n\n' "$VERSION" "${GITHUB_SHA::8}" "$INPUT_REF" >> release-notes.md
           fi
           printf '### Assets\n\n' >> release-notes.md
           printf -- '- `%s` — universal APK without R8\n' "vftest-universal-nor8-$SUFFIX.apk" >> release-notes.md
