@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: '源码分支或 Tag（例如 dev、main、v4.2.0）'
+        description: 'Source branch or Tag (e.g. dev, main, v4.2.0)'
         required: false
         default: 'dev'
       version:
-        description: '发布版本号（如 4.3.0）；留空则发布 nightly，新的 nightly 会覆盖旧的'
+        description: 'Release version (e.g. 4.3.0); leave empty for nightly, new nightly overwrites old'
         required: false
         default: ''
       publish_release:
-        description: '是否创建/更新 GitHub Release（关闭则只上传 Actions 产物）'
+        description: 'Create/Update GitHub Release (disable to upload Artifacts only)'
         required: false
         type: boolean
         default: true
@@ -45,27 +45,34 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 一次构建同时生成普通 release 与带 R8 的 r8 构建（均包含 Universal 与 ABI 拆分包）
-      - name: Build Release APKs (Universal & Splits, with and without R8)
+      # ── Parallel build: Release (no R8) and R8 (with shrink) run independently ──
+      - name: Build Release APK (no R8)
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease assembleR8 --stacktrace
+        run: ./gradlew assembleRelease --stacktrace
 
-      # 不带 R8 的 Universal 包（app/build/outputs/apk/release/app-universal-release.apk）
-      - name: Upload Universal APK (without R8)
+      - name: Build R8 APK (with shrink)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleR8 --stacktrace
+
+      # 不带 R8 的 Universal 包
+      - name: Upload Universal APK (no R8)
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-universal
+          name: vftest-universal-nor8
           path: app/build/outputs/apk/release/app-universal-release.apk
           if-no-files-found: error
 
-      # 带 R8 的 Universal 包（app/build/outputs/apk/r8/app-universal-r8.apk）
+      # 带 R8 的 Universal 包
       - name: Upload Universal APK (with R8)
         uses: actions/upload-artifact@v4
         with:
-          name: app-r8-universal
+          name: vftest-universal-r8
           path: app/build/outputs/apk/r8/app-universal-r8.apk
           if-no-files-found: error
 
@@ -97,13 +104,15 @@ jobs:
             echo "tag=$TAG"
             echo "name=$NAME"
             echo "apk_suffix=$SUFFIX"
+            echo "version_name=$VERSION"
+            echo "commit_hash=${GITHUB_SHA::8}"
           } >> "$GITHUB_OUTPUT"
 
           mkdir -p release-assets
           cp app/build/outputs/apk/release/app-universal-release.apk \
-             "release-assets/VariableFontTest-$SUFFIX-universal.apk"
+             "release-assets/vftest-universal-nor8-$SUFFIX.apk"
           cp app/build/outputs/apk/r8/app-universal-r8.apk \
-             "release-assets/VariableFontTest-$SUFFIX-universal-r8.apk"
+             "release-assets/vftest-universal-r8-$SUFFIX.apk"
           ( cd release-assets && sha256sum *.apk > SHA256SUMS.txt )
           ls -lh release-assets
 
@@ -122,8 +131,8 @@ jobs:
             printf 'Release `%s`, built from branch/tag `%s` (commit `%s`).\n\n' "$VERSION" "$INPUT_REF" "$GITHUB_SHA" >> release-notes.md
           fi
           printf '### Assets\n\n' >> release-notes.md
-          printf -- '- `%s` — universal APK without R8\n' "VariableFontTest-$SUFFIX-universal.apk" >> release-notes.md
-          printf -- '- `%s` — universal APK with R8 (smaller)\n' "VariableFontTest-$SUFFIX-universal-r8.apk" >> release-notes.md
+          printf -- '- `%s` — universal APK without R8\n' "vftest-universal-nor8-$SUFFIX.apk" >> release-notes.md
+          printf -- '- `%s` — universal APK with R8 (smaller)\n' "vftest-universal-r8-$SUFFIX.apk" >> release-notes.md
           printf -- '- `SHA256SUMS.txt` — SHA256 checksums of the APKs\n\n' >> release-notes.md
           printf 'Workflow run: %s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> release-notes.md
           if [ "$IS_NIGHTLY" = "true" ]; then
@@ -132,7 +141,8 @@ jobs:
           cat release-notes.md
 
       - name: Delete previous nightly release
-        if: ${{ inputs.publish_release && steps.meta.outputs.is_nightly == 'true' }}
+        # If nightly, always delete the previous one regardless of publish_release setting
+        if: ${{ steps.meta.outputs.is_nightly == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
