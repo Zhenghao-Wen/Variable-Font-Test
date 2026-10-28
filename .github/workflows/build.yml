@@ -128,8 +128,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
           mkdir -p release-assets
-          mv downloads/nor8/app-universal-release.apk release-assets/vftest-universal-nor8.apk
-          mv downloads/r8/app-universal-r8.apk release-assets/vftest-universal-r8.apk
+          NOR8_APK="$(find downloads/nor8 -name '*.apk' -print -quit)"
+          R8_APK="$(find downloads/r8 -name '*.apk' -print -quit)"
+          test -n "$NOR8_APK"
+          test -n "$R8_APK"
+          mv "$NOR8_APK" release-assets/vftest-universal-nor8.apk
+          mv "$R8_APK" release-assets/vftest-universal-r8.apk
           ( cd release-assets && sha256sum *.apk > SHA256SUMS.txt )
           ls -lh release-assets
 
