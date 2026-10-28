@@ -117,37 +117,29 @@ class SliderPreference @JvmOverloads constructor(
         // 第一步：负 margin 抵消 trackSidePadding 内缩——左缘对齐标题左缘、
         //         wght 右缘贴合数值区、其余右缘回退一个 inset（与 wght 数值区留距观感一致）。
         // 第二步：两端各加 δ 呼吸间距——左端右移 δ、其余右端再左移 δ（wght 右端贴合数值区，不加 δ）。
-        try {
-            var cls: Class<*>? = s.javaClass
-            var inset = 0
-            while (cls != null) {
-                try {
-                    val f = cls.getDeclaredField("trackSidePadding")
-                    f.isAccessible = true
-                    inset = f.getInt(s)
-                    break
-                } catch (_: Exception) { }
-                cls = cls.superclass
+        //
+        // 这里必须用公开的 getTrackSidePadding()，不能用反射读取私有字段 trackSidePadding：
+        // R8 压缩构建会重命名私有字段，反射读不到值（inset 恒为 0），整个补偿被跳过，
+        // 表现为 R8 包 Slider 两端比非 R8 包内缩（约 4dp），而非 R8 包正常。
+        val inset = s.trackSidePadding
+        if (inset > 0) {
+            val density = s.resources.displayMetrics.density
+            val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()
+            val otherRightShiftPx = (OTHER_RIGHT_SHIFT_DP * density).toInt()
+            // 数值区宽度 W（与改动 2 中设置的 width 同口径），供非 wght 右端留距计算
+            val valueTextWidth = valueText?.let { tv ->
+                (tv.paint.measureText("1000") + (tv.paddingStart + tv.paddingEnd) + 2 * density).toInt()
+            } ?: 0
+            (s.layoutParams as? android.widget.LinearLayout.LayoutParams)?.let { lp ->
+                // 左端：全部滑块右移 LEFT_SHIFT_DP
+                lp.marginStart = -(inset - leftShiftPx)
+                // 右端：
+                //   wght   → -inset，轨道右缘贴合数值文字左缘（整组已由改动 2 的 marginEnd 左移）
+                //   非 wght → 留距 = W - OTHER_RIGHT_SHIFT_DP
+                lp.marginEnd = if (showLabel) -inset else (valueTextWidth - otherRightShiftPx - inset)
+                s.layoutParams = lp
             }
-            if (inset > 0) {
-                val density = s.resources.displayMetrics.density
-                val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()
-                val otherRightShiftPx = (OTHER_RIGHT_SHIFT_DP * density).toInt()
-                // 数值区宽度 W（与改动 2 中设置的 width 同口径），供非 wght 右端留距计算
-                val valueTextWidth = valueText?.let { tv ->
-                    (tv.paint.measureText("1000") + (tv.paddingStart + tv.paddingEnd) + 2 * density).toInt()
-                } ?: 0
-                (s.layoutParams as? android.widget.LinearLayout.LayoutParams)?.let { lp ->
-                    // 左端：全部滑块右移 LEFT_SHIFT_DP
-                    lp.marginStart = -(inset - leftShiftPx)
-                    // 右端：
-                    //   wght   → -inset，轨道右缘贴合数值文字左缘（整组已由改动 2 的 marginEnd 左移）
-                    //   非 wght → 留距 = W - OTHER_RIGHT_SHIFT_DP
-                    lp.marginEnd = if (showLabel) -inset else (valueTextWidth - otherRightShiftPx - inset)
-                    s.layoutParams = lp
-                }
-            }
-        } catch (_: Exception) { }
+        }
 
         // ── 设置当前值（无 listener，安全）──
         s.value = sliderValue.coerceIn(valueFrom, valueTo)
