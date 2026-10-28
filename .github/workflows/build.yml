@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Source branch or Tag (e.g. dev, main, v4.2.0)'
+        description: 'Source branch or tag (e.g. dev, main, v4.2.0)'
         required: false
         default: 'dev'
       version:
-        description: 'Release version (e.g. 4.3.0); leave empty for nightly, new nightly overwrites old'
+        description: 'Release version (e.g. 4.3.0); leave empty for nightly, a new nightly replaces the old one'
         required: false
         default: ''
       publish_release:
-        description: 'Create/Update GitHub Release (disable to upload Artifacts only)'
+        description: 'Create/update GitHub Release (disable to only upload workflow artifacts)'
         required: false
         type: boolean
         default: true
@@ -21,9 +21,22 @@ permissions:
   contents: write
 
 jobs:
+  # ── Two variants are compiled independently (in parallel) ──
   build:
+    name: Build universal APK (${{ matrix.variant }})
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: nor8
+            task: assembleRelease
+            apk_dir: release
+            apk_file: app-universal-release.apk
+          - variant: r8
+            task: assembleR8
+            apk_dir: r8
+            apk_file: app-universal-r8.apk
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,7 +50,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Decode Keystore
+      - name: Decode keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/app/release-key.jks"
           echo "KEYSTORE_FILE=${{ github.workspace }}/app/release-key.jks" >> "$GITHUB_ENV"
@@ -45,38 +58,46 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ── Parallel build: Release (no R8) and R8 (with shrink) run independently ──
-      - name: Build Release APK (no R8)
+      - name: Build ${{ matrix.variant }} APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew ${{ matrix.task }} --stacktrace
 
-      - name: Build R8 APK (with shrink)
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleR8 --stacktrace
-
-      # 不带 R8 的 Universal 包
-      - name: Upload Universal APK (no R8)
+      - name: Upload universal APK (${{ matrix.variant }})
         uses: actions/upload-artifact@v4
+        with:
+          name: vftest-universal-${{ matrix.variant }}
+          path: app/build/outputs/apk/${{ matrix.apk_dir }}/${{ matrix.apk_file }}
+          if-no-files-found: error
+
+  # ── Publish a single release only after both builds succeeded ──
+  release:
+    name: Publish release
+    needs: build
+    if: ${{ inputs.publish_release }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Download APK (no R8)
+        uses: actions/download-artifact@v4
         with:
           name: vftest-universal-nor8
-          path: app/build/outputs/apk/release/app-universal-release.apk
-          if-no-files-found: error
+          path: downloads/nor8
 
-      # 带 R8 的 Universal 包
-      - name: Upload Universal APK (with R8)
-        uses: actions/upload-artifact@v4
+      - name: Download APK (with R8)
+        uses: actions/download-artifact@v4
         with:
           name: vftest-universal-r8
-          path: app/build/outputs/apk/r8/app-universal-r8.apk
-          if-no-files-found: error
+          path: downloads/r8
 
-      - name: Prepare release metadata & notes
+      - name: Prepare release assets and notes
         id: meta
         env:
           INPUT_VERSION: ${{ inputs.version }}
@@ -84,13 +105,12 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(echo "$INPUT_VERSION" | xargs)"
+          SHORT_SHA="$(git rev-parse --short=7 HEAD)"
           if [ -z "$VERSION" ]; then
-            SUFFIX="nightly"
             IS_NIGHTLY="true"
             TAG="nightly"
             NAME="Nightly"
           else
-            SUFFIX="$VERSION"
             IS_NIGHTLY="false"
             TAG="$VERSION"
             case "$TAG" in
@@ -103,16 +123,13 @@ jobs:
             echo "is_nightly=$IS_NIGHTLY"
             echo "tag=$TAG"
             echo "name=$NAME"
-            echo "apk_suffix=$SUFFIX"
-            echo "version_name=$VERSION"
-            echo "commit_hash=${GITHUB_SHA::8}"
+            echo "version=$VERSION"
+            echo "short_sha=$SHORT_SHA"
           } >> "$GITHUB_OUTPUT"
 
           mkdir -p release-assets
-          cp app/build/outputs/apk/release/app-universal-release.apk \
-             "release-assets/vftest-universal-nor8-$SUFFIX.apk"
-          cp app/build/outputs/apk/r8/app-universal-r8.apk \
-             "release-assets/vftest-universal-r8-$SUFFIX.apk"
+          mv downloads/nor8/app-universal-release.apk release-assets/vftest-universal-nor8.apk
+          mv downloads/r8/app-universal-r8.apk release-assets/vftest-universal-r8.apk
           ( cd release-assets && sha256sum *.apk > SHA256SUMS.txt )
           ls -lh release-assets
 
@@ -126,13 +143,13 @@ jobs:
 
           printf '\n' >> release-notes.md
           if [ "$IS_NIGHTLY" = "true" ]; then
-            printf 'Automated nightly build from branch/tag `%s` (commit `%s`).\n\n' "$INPUT_REF" "$GITHUB_SHA" >> release-notes.md
+            printf 'Automated nightly build from branch/tag `%s`, commit `%s`.\n\n' "$INPUT_REF" "$SHORT_SHA" >> release-notes.md
           else
-            printf 'Release `%s-%s`, built from branch/tag `%s`\n\n' "$VERSION" "${GITHUB_SHA::8}" "$INPUT_REF" >> release-notes.md
+            printf 'Release `%s-%s`, built from branch/tag `%s`.\n\n' "$VERSION" "$SHORT_SHA" "$INPUT_REF" >> release-notes.md
           fi
           printf '### Assets\n\n' >> release-notes.md
-          printf -- '- `%s` — universal APK without R8\n' "vftest-universal-nor8-$SUFFIX.apk" >> release-notes.md
-          printf -- '- `%s` — universal APK with R8 (smaller)\n' "vftest-universal-r8-$SUFFIX.apk" >> release-notes.md
+          printf -- '- `%s` — universal APK without R8\n' "vftest-universal-nor8.apk" >> release-notes.md
+          printf -- '- `%s` — universal APK with R8 (smaller)\n' "vftest-universal-r8.apk" >> release-notes.md
           printf -- '- `SHA256SUMS.txt` — SHA256 checksums of the APKs\n\n' >> release-notes.md
           printf 'Workflow run: %s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> release-notes.md
           if [ "$IS_NIGHTLY" = "true" ]; then
@@ -141,16 +158,16 @@ jobs:
           cat release-notes.md
 
       - name: Delete previous nightly release
-        # If nightly, always delete the previous one regardless of publish_release setting
+        # Only reached after both builds succeeded, so a failed build never removes the old nightly.
         if: ${{ steps.meta.outputs.is_nightly == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
-          git push origin :refs/tags/nightly 2>/dev/null || true
+          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/nightly" 2>/dev/null || true
 
-      - name: Publish versioned Release
-        if: ${{ inputs.publish_release && steps.meta.outputs.is_nightly != 'true' }}
+      - name: Publish versioned release
+        if: ${{ steps.meta.outputs.is_nightly != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
@@ -159,8 +176,8 @@ jobs:
           fail_on_unmatched_files: true
           files: release-assets/*
 
-      - name: Publish nightly Release
-        if: ${{ inputs.publish_release && steps.meta.outputs.is_nightly == 'true' }}
+      - name: Publish nightly release
+        if: ${{ steps.meta.outputs.is_nightly == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nightly

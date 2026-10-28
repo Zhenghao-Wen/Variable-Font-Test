@@ -3,6 +3,22 @@ plugins {
     alias(libs.plugins.jetbrainsKotlinAndroid)
 }
 
+// ── App version name ────────────────────────────────────────────────────────
+// The base version name is still written here in code. The git short commit
+// hash is appended at build time, producing e.g. "4.2-1a2b3d4".
+val baseVersionName = "4.2"
+val gitCommitHash: String = try {
+    val process = ProcessBuilder("git", "rev-parse", "--short=7", "HEAD")
+        .directory(rootDir)
+        .redirectErrorStream(true)
+        .start()
+    val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+    process.waitFor()
+    if (process.exitValue() == 0 && output.matches(Regex("[0-9a-f]{7,40}"))) output else ""
+} catch (_: Exception) {
+    ""
+}
+
 android {
     namespace = "moe.echo.variablefonttest_n"
     compileSdk = 35
@@ -12,7 +28,7 @@ android {
         minSdk = 21
         targetSdk = 35
         versionCode = 23
-        versionName = "4.2"
+        versionName = if (gitCommitHash.isEmpty()) baseVersionName else "$baseVersionName-$gitCommitHash"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
