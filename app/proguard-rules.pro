@@ -26,7 +26,6 @@
     public <init>(android.content.Context, android.util.AttributeSet, int);
 }
 
--keep class moe.echo.variablefonttest_n.SeekBarPreference { *; }
 -keep class moe.echo.variablefonttest_n.SliderPreference { *; }
 -keep class moe.echo.variablefonttest_n.MainFragment { *; }
 -keep class moe.echo.variablefonttest_n.OptionsFragment { *; }

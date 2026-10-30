@@ -7,15 +7,16 @@ import android.view.View
 import android.widget.TextView
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
-import com.google.android.material.slider.LabelFormatter
 import com.google.android.material.slider.Slider
 import kotlin.math.pow
 
 /**
- * A [Preference] that displays a Material 3 [Slider] instead of the legacy SeekBar.
+ * A [Preference] that displays the Material 3 [Slider] used for every slider in the app
+ * (the legacy MD2 SeekBar has been removed).
  *
- * Correctly resolves ?attr/colorPrimary for active track and thumb,
- * ensuring proper saturation with dynamic colors (system_accent1_200 in dark mode).
+ * The floating value label is always enabled, and correctly resolves ?attr/colorPrimary
+ * for active track and thumb, ensuring proper saturation with dynamic colors
+ * (system_accent1_200 in dark mode).
  */
 class SliderPreference @JvmOverloads constructor(
     context: Context,
@@ -28,7 +29,6 @@ class SliderPreference @JvmOverloads constructor(
     var stepSize: Float = 1f
     var sliderValue: Float = 0f
     var showLabel: Boolean = false
-    var floatingLabelEnabled: Boolean = false
     /** 文本模式换算系数：text = rawValue × valueScale + valueOffset */
     var valueScale: Float = 1f
     var valueOffset: Float = 0f
@@ -47,12 +47,6 @@ class SliderPreference @JvmOverloads constructor(
      * Reference: material-components-android LabelBehavior.java
      */
     private companion object {
-        /**
-         * 不显示拖动标签（Label formatter）。
-         * LabelBehavior.GONE = 2；该注解为 @Retention(SOURCE)，编译后不在 AAR 中，无法导入，故用本地常量。
-         */
-        const val LABEL_GONE = 2
-
         /** LabelBehavior.FLOATING = 0 */
         const val LABEL_FLOATING = 0
 
@@ -62,7 +56,7 @@ class SliderPreference @JvmOverloads constructor(
          */
         const val TICK_VISIBILITY_HIDDEN = 2
 
-        // ── 两端对齐微调量（dp），经 Android 12/15 实机调试确定，用于对齐 MD2 SeekBar 观感 ──
+        // ── 两端对齐微调量（dp），经 Android 12/15 实机调试确定 ──
         /** 全部滑块左端右移量：轨道左缘相对"贴齐标题左缘"再右移此值 */
         const val LEFT_SHIFT_DP = 6f
         /** wght 数值区整体左移量：轨道右缘连带数值文字一起左移此值 */
@@ -94,20 +88,18 @@ class SliderPreference @JvmOverloads constructor(
         (s.tag as? Slider.OnChangeListener)?.let { s.removeOnChangeListener(it) }
 
         // ── 设置 Slider 参数（此时无 listener，安全）──
-        s.valueFrom = valueFrom
-        s.valueTo = valueTo
-        s.stepSize = stepSize
+        // 数值归一化：valueTo 必须大于 valueFrom、stepSize 必须为正且整除整个区间，
+        // 且 value 必须落在 valueFrom + n × stepSize 的步进网格上，否则 Material Slider 会抛异常。
+        val (from, to, step) = sanitizedRange()
+        s.valueFrom = from
+        s.valueTo = to
+        s.stepSize = step
 
-        // ── 拖动浮动标签：受 floatingLabelEnabled 控制 ──
-        if (floatingLabelEnabled) {
-            s.labelBehavior = LABEL_FLOATING
-            s.setLabelFormatter { value ->
-                val display = value * valueScale + valueOffset
-                formatValue(display)
-            }
-        } else {
-            s.labelBehavior = LABEL_GONE
-            s.setLabelFormatter(null)
+        // ── 拖动浮动标签：始终启用（对所有滑块生效）──
+        s.labelBehavior = LABEL_FLOATING
+        s.setLabelFormatter { value ->
+            val display = value * valueScale + valueOffset
+            formatValue(display)
         }
         // ── 隐藏轨道步进圆点（tick marks）：步进值小则圆点密布，隐藏后更整洁 ──
         // 此处统一生效，预设滑块与自定义参数滑块均经 SliderPreference 渲染，一并覆盖。
@@ -141,8 +133,9 @@ class SliderPreference @JvmOverloads constructor(
             }
         }
 
-        // ── 设置当前值（无 listener，安全）──
-        s.value = sliderValue.coerceIn(valueFrom, valueTo)
+        // ── 设置当前值（无 listener，安全；先对齐步进网格）──
+        val snapped = from + Math.round((sliderValue - from) / step) * step
+        s.value = snapped.coerceIn(from, to)
 
         // ── 附加本实例的 listener 并记录到 tag ──
         s.addOnChangeListener(onChangeListener)
@@ -158,7 +151,7 @@ class SliderPreference @JvmOverloads constructor(
             tv.layoutParams = tv.layoutParams.apply {
                 width = (tv.paint.measureText("1000") + paddingH + 2 * density).toInt()
                 // wght：数值文字右缘内缩 WGHT_ASSEMBLY_SHIFT_DP，
-                // 使轨道右缘连带数值文字整体左移，对齐 MD2 SeekBar 观感。
+                // 使轨道右缘连带数值文字整体左移。
                 // （仅 showLabel=true 即 wght 生效；此处 this 为 layoutParams）
                 if (showLabel) {
                     (this as? android.view.ViewGroup.MarginLayoutParams)?.marginEnd =
@@ -173,6 +166,36 @@ class SliderPreference @JvmOverloads constructor(
                 tv.visibility = View.GONE
             }
         }
+    }
+
+    /**
+     * 重新把当前的 range/step/value 应用到已绑定的 Slider 上。
+     * 用于外部（如字体元数据长按更新轴范围）在绑定后修改数值域时刷新界面。
+     */
+    fun refresh() {
+        val s = slider ?: return
+        val (from, to, step) = sanitizedRange()
+        s.valueFrom = from
+        s.valueTo = to
+        s.stepSize = step
+        val snapped = from + Math.round((sliderValue - from) / step) * step
+        s.value = snapped.coerceIn(from, to)
+    }
+
+    /**
+     * Material Slider 要求 valueTo > valueFrom，且 stepSize 必须整除整个区间；
+     * 否则 setStepSize / setValueFrom 会抛 IllegalArgumentException。
+     * 这里把区间按 step 分成整数份并重新计算 step，保证三项约束同时成立。
+     */
+    private fun sanitizedRange(): Triple<Float, Float, Float> {
+        val from = valueFrom
+        val rawTo = if (valueTo > from) valueTo else from + 1f
+        val range = rawTo - from
+        val requested = if (stepSize > 0f) stepSize else 1f
+        val divisions = Math.max(1.0, Math.ceil(range / requested.toDouble()))
+        val step = (range / divisions).toFloat()
+        val to = (from.toDouble() + step.toDouble() * divisions).toFloat()
+        return Triple(from, to, step)
     }
 
     override fun onSetInitialValue(defaultValue: Any?) {

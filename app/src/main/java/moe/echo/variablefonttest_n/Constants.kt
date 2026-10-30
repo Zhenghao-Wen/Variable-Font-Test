@@ -41,16 +41,9 @@ object Constants {
     const val ADD_FEATURE_TYPE_SEEK_BAR = "seekBar"
     const val ADD_FEATURE_TYPE_EDIT_TEXT = "editText"
 
-    // ── MD3 Slider toggle ──
-    const val PREF_USE_MD3_SLIDER = "use_md3_slider"
-    const val PREF_SHOW_FLOATING_LABEL = "show_floating_label"
-    
     // ── Keep params on launch toggle ──
     const val PREF_KEEP_PARAMS = "keep_params_on_launch"
     const val PREF_CUSTOM_PREFS_META = "custom_prefs_metadata"
-    
-    // ── Mode switch flag ──
-    const val PREF_IS_MODE_SWITCH = "is_mode_switch"
     
     // ── Font family persistence ──
     const val PREF_FONT_FAMILY = "pref_font_family"

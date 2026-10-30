@@ -62,56 +62,34 @@
             android:enabled="false"
             android:title="@string/unsupported_android" />
 
-        <moe.echo.variablefonttest_n.SeekBarPreference
+        <moe.echo.variablefonttest_n.SliderPreference
             android:key="italAxis"
             android:summary="ital"
             android:title="@string/variation_italic"
-            app:min="0"
-            android:max="10"
-            android:defaultValue="0"
-            app:updatesContinuously="true"
             android:persistent="false" />
 
-        <moe.echo.variablefonttest_n.SeekBarPreference
+        <moe.echo.variablefonttest_n.SliderPreference
             android:key="opszAxis"
             android:summary="opsz"
             android:title="@string/variation_optical_size"
-            app:min="1"
-            android:max="1440"
-            android:defaultValue="1"
-            app:updatesContinuously="true"
             android:persistent="false" />
 
-        <moe.echo.variablefonttest_n.SeekBarPreference
+        <moe.echo.variablefonttest_n.SliderPreference
             android:key="slntAxis"
             android:summary="slnt"
             android:title="@string/variation_slant"
-            app:min="0"
-            android:max="180"
-            android:defaultValue="90"
-            app:updatesContinuously="true"
             android:persistent="false" />
 
-        <moe.echo.variablefonttest_n.SeekBarPreference
+        <moe.echo.variablefonttest_n.SliderPreference
             android:key="wdthAxis"
             android:summary="wdth"
             android:title="@string/variation_width"
-            app:min="0"
-            android:max="2000"
-            android:defaultValue="1000"
-            app:updatesContinuously="true"
             android:persistent="false" />
 
-        <moe.echo.variablefonttest_n.SeekBarPreference
+        <moe.echo.variablefonttest_n.SliderPreference
             android:key="wghtAxis"
             android:summary="wght"
             android:title="@string/variation_weight"
-            app:min="1"
-            android:max="1000"
-            android:defaultValue="400"
-            app:showSeekBarValue="true"
-            app:adjustable="true"
-            app:updatesContinuously="true"
             android:persistent="false" />
 
         <EditTextPreference

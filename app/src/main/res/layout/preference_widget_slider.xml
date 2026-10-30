@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- preference_widget_seekbar_material.xml 的精确结构副本。
-     唯一区别：SeekBar → Slider，seekbar_value → slider_value。
+<!-- Material 3 Slider preference 布局（应用的唯一滑块实现）。
      RelativeLayout(0dp+weight) 的溢出机制吸收 margin，消除顶部可见间隙。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"

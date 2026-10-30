@@ -35,7 +35,6 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceViewHolder
-import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.forEach
 import androidx.preference.PreferenceManager
@@ -61,8 +60,6 @@ import kotlin.collections.set
 import kotlin.collections.toList
 import kotlin.collections.toMap
 import kotlin.collections.zip
-import kotlin.math.abs
-import kotlin.math.pow
 
 private const val TAG = "OptionsFragment"
 
@@ -223,7 +220,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     return@setOnClickListener
                 }
 
-                // ── 3. 创建底层 Preference（SeekBar/Switch/EditText 逻辑保持不变）──
+                // ── 3. 创建底层 Preference（Slider/Switch/EditText）──
                 val preference = when (typeValues[selectedItemPosition]) {
                     Constants.ADD_FEATURE_TYPE_SWITCH ->
                         SwitchPreferenceCompat(preferenceScreen.context).apply {
@@ -234,65 +231,21 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             }
                         }
                     Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
-                        moe.echo.variablefonttest_n.SeekBarPreference(preferenceScreen.context).apply {
-                            val rawMin = seekBarMin.text.toString()
-                            val rawMax = seekBarMax.text.toString()
-                            val rawStep = seekBarStep.text.toString()
-
-                            val minSetting = rawMin.toFloatOrNull() ?: 0F
-                            val maxSetting = rawMax.toFloatOrNull() ?: 0F
-
-                            val minimum = minSetting.coerceAtMost(maxSetting)
-                            val maximum = minSetting.coerceAtLeast(maxSetting)
-                            val step = rawStep.toFloatOrNull() ?: 0F
-
-                            var offset = 0F
-                            var multiplier = 1F
-
-                            if (rawStep.contains(".")) {
-                                val decimalWithDot = rawStep
-                                    .substring(rawStep.indexOf("."))
-                                val decimalWithDotLength = decimalWithDot.length
-
-                                if (decimalWithDotLength > 1) {
-                                    if (decimalWithDot.substring(1).toInt() > 0) {
-                                        multiplier *= 10F.pow(decimalWithDotLength - 1)
-                                    }
-                                }
-                            }
-
-                            if (minimum < 0) {
-                                offset += abs(minimum)
-                            }
-
-                            min = ((minimum + offset) * multiplier).toInt()
-                            max = ((maximum + offset) * multiplier).toInt()
-                            seekBarIncrement = (step * multiplier).toInt()
-
-                            Log.i(TAG, "createAddPreferenceDialog: $tagName: minimum: $minimum")
-                            Log.i(TAG, "createAddPreferenceDialog: $tagName: maximum: $maximum")
-                            Log.i(TAG, "createAddPreferenceDialog: $tagName: step: $step")
-
-                            Log.i(TAG, "createAddPreferenceDialog: $tagName: offset: $offset")
-                            Log.i(TAG, "createAddPreferenceDialog: $tagName: multiplier: $multiplier")
-
-                            Log.i(TAG, "createAddPreferenceDialog: $tagName: seekBar.min: $min")
-                            Log.i(TAG, "createAddPreferenceDialog: $tagName: seekBar.max: $max")
-                            Log.i(
-                                TAG,
-                                "createAddPreferenceDialog: $tagName: seekBar.seekBarIncrement: $seekBarIncrement"
-                            )
-
-                            updatesContinuously = true
-
+                        SliderPreference(preferenceScreen.context).apply {
+                            valueFrom = minimumFinal
+                            valueTo = maximumFinal
+                            stepSize = stepFinal.coerceAtLeast(0.001f)
+                            sliderValue = minimumFinal
+                            showLabel = false
+                            valueScale = 1f
+                            valueOffset = 0f
+                            val isIntegerStep = (stepFinal == stepFinal.toLong().toFloat())
+                            decimalPlaces = if (isIntegerStep) 0 else 1
+                            isPersistent = false
                             setOnPreferenceChangeListener { _, newValue ->
                                 val value = newValue.toString().toFloatOrNull()
-
                                 if (value != null) {
-                                    setSetting(
-                                        tagName,
-                                        ((value - offset * multiplier) / multiplier).toString()
-                                    )
+                                    setSetting(tagName, value.toString())
                                     persistSettings()
                                     true
                                 } else false
@@ -333,57 +286,18 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     preferences.removePreference(duplicateKeyPreference)
                 }
 
-                // ── 4. MD3 Slider 替换逻辑（核心修复：使用原始 Float 值）──
-                val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(context)
-                    .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
-                val finalPreference: Preference = if (
-                    useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                    typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR
-                ) {
-                    SliderPreference(context).apply {
-                        key = tagName
-                        title = tagName
-                        // ★★★ 修复异常缩放：直接使用原始 Float，不读取 preference.min/max ★★★
-                        valueFrom = minimumFinal
-                        valueTo = maximumFinal
-                        stepSize = stepFinal.coerceAtLeast(0.001f) // 仅防止 0
-                        sliderValue = minimumFinal // 默认初始值
-                        showLabel = false
-                        floatingLabelEnabled = PreferenceManager.getDefaultSharedPreferences(context)
-                            .getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
-                        valueScale = 1f
-                        valueOffset = 0f
-                        // 判断步进值是否为整数
-                        val isIntegerStep = (stepFinal == stepFinal.toLong().toFloat())
-                        decimalPlaces = if (isIntegerStep) 0 else 1
-                        
-                        isPersistent = false
-                        setOnPreferenceChangeListener { _, newValue ->
-                            val value = newValue.toString().toFloatOrNull()
-                            if (value != null) {
-                                setSetting(tagName, value.toString())
-                                persistSettings()
-                                true
-                            } else false
-                        }
-                    }
-                } else {
-                    preference
-                }
-                preferences.addPreference(finalPreference)
+                preferences.addPreference(preference)
 
-                // ── 5. 保存元数据 & 重排序（保留原有逻辑）──
+                // ── 5. 保存元数据 & 重排序 ──
+                val isSlider = typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR
                 saveCustomPrefMeta(
                     context = context,
                     key = tagName,
                     type = typeValues[selectedItemPosition],
                     category = if (preferences.key == Constants.PREF_CATEGORY_VARIATIONS) "variations" else "fontFeatures",
-                    min = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
-                        (finalPreference as? SeekBarPreference)?.min ?: 0 else 0,
-                    max = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
-                        (finalPreference as? SeekBarPreference)?.max ?: 100 else 100,
-                    step = if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR)
-                        (finalPreference as? SeekBarPreference)?.seekBarIncrement ?: 1 else 1
+                    min = if (isSlider) minimumFinal.toDouble() else 0.0,
+                    max = if (isSlider) maximumFinal.toDouble() else 100.0,
+                    step = if (isSlider) stepFinal.toDouble() else 1.0
                 )
 
                 preferences.forEach {
@@ -498,19 +412,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private fun restoreSettings() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
 
-        // 判断本次 onCreate 是"模式切换"还是"真正的应用启动"
-        val isModeSwitch = prefs.getBoolean(Constants.PREF_IS_MODE_SWITCH, false)
-        if (isModeSwitch) {
-            // 消费标志，防止下次启动误判
-            prefs.edit().remove(Constants.PREF_IS_MODE_SWITCH).apply()
-        }
-        
         val isExternalOpen = prefs.getBoolean(Constants.PREF_IS_EXTERNAL_FONT_OPEN, false)
         if (isExternalOpen) {
             prefs.edit().remove(Constants.PREF_IS_EXTERNAL_FONT_OPEN).apply()
         }
 
-        // 模式切换：无条件恢复（SeekBar↔Slider 必须无缝）
         // 应用启动：仅在用户开启"下次启动不重置参数"时恢复
         val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
 
@@ -523,11 +429,10 @@ class OptionsFragment : PreferenceFragmentCompat() {
         // 仅在以下条件同时满足时重置：
         // 1. 冷启动（进程被杀后重新打开）
         // 2. 未开启"保持现状"
-        // 3. 非模式切换
-        // 4. 非外部字体打开
+        // 3. 非外部字体打开
         // 配置变更（小窗/分屏/旋转）时 isColdStart=false，永不重置
         // 如果是外部打开字体，强制保留其他参数（即使 keepParams 为 false）
-        if (isColdStart && !keepParams && !isModeSwitch && !isExternalOpen) {
+        if (isColdStart && !keepParams && !isExternalOpen) {
             // 释放可能残留的自定义字体权限
             releaseCustomFontPermission()
             prefs.edit()
@@ -565,7 +470,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
     /** 保存自定义参数元数据到 SharedPreferences */
     private fun saveCustomPrefMeta(
         context: Context, key: String, type: String, category: String,
-        min: Int, max: Int, step: Int
+        min: Double, max: Double, step: Double
     ) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
@@ -653,7 +558,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
     }
 
     /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
-    private fun restoreCustomPrefs(useMd3Slider: Boolean, showFloatingLabel: Boolean, applyVariation: (String) -> Unit) {
+    private fun restoreCustomPrefs(applyVariation: (String) -> Unit) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
         try {
@@ -694,54 +599,33 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         }.also { category.addPreference(it) }
                     }
                     Constants.ADD_FEATURE_TYPE_SEEK_BAR -> {
-                        val min = meta.optInt("min", 0)
-                        val max = meta.optInt("max", 100)
-                        val step = meta.optInt("step", 1)
-                        val savedValue = fontVariationSettings[key]?.toFloatOrNull()
-                        if (useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            val isIntegerStep = (step.toFloat() == step.toFloat().toLong().toFloat())
-                            SliderPreference(requireContext()).apply {
-                                this.key = key
-                                title = key
-                                valueFrom = min.toFloat()
-                                valueTo = max.toFloat()
-                                stepSize = step.toFloat().coerceAtLeast(0.001f)
-                                sliderValue = savedValue ?: min.toFloat()
-                                showLabel = false
-                                floatingLabelEnabled = useMd3Slider && showFloatingLabel
-                                valueScale = 1f
-                                valueOffset = 0f
-                                decimalPlaces = if (isIntegerStep) 0 else 1  // ← 根据步进值决定
-                                isPersistent = false
-                                setOnPreferenceChangeListener { _, newValue ->
-                                    val v = newValue.toString().toFloatOrNull()
-                                    if (v != null) {
-                                        setSetting(key, v.toString())
-                                        persistSettings()
-                                        true
-                                    } else false
-                                }
-                            }.also { category.addPreference(it) }
-                        } else {
-                            moe.echo.variablefonttest_n.SeekBarPreference(requireContext()).apply {
-                                this.key = key
-                                title = key
-                                this.min = min
-                                this.max = max
-                                seekBarIncrement = step
-                                updatesContinuously = true
-                                isPersistent = false
-                                if (savedValue != null) value = savedValue.toInt()
-                                setOnPreferenceChangeListener { _, newValue ->
-                                    val v = newValue.toString().toFloatOrNull()
-                                    if (v != null) {
-                                        setSetting(key, v.toString())
-                                        persistSettings()
-                                        true
-                                    } else false
-                                }
-                            }.also { category.addPreference(it) }
-                        }
+                        val min = meta.optDouble("min", 0.0).toFloat()
+                        val max = meta.optDouble("max", 100.0).toFloat()
+                        val step = meta.optDouble("step", 1.0).toFloat()
+                        val savedValue = (fontVariationSettings[key] ?: fontFeatureSettings[key])
+                            ?.toFloatOrNull()
+                        val isIntegerStep = (step == step.toLong().toFloat())
+                        SliderPreference(requireContext()).apply {
+                            this.key = key
+                            title = key
+                            valueFrom = min
+                            valueTo = max
+                            stepSize = step.coerceAtLeast(0.001f)
+                            sliderValue = (savedValue ?: min).coerceIn(min, max)
+                            showLabel = false
+                            valueScale = 1f
+                            valueOffset = 0f
+                            decimalPlaces = if (isIntegerStep) 0 else 1
+                            isPersistent = false
+                            setOnPreferenceChangeListener { _, newValue ->
+                                val v = newValue.toString().toFloatOrNull()
+                                if (v != null) {
+                                    setSetting(key, v.toString())
+                                    persistSettings()
+                                    true
+                                } else false
+                            }
+                        }.also { category.addPreference(it) }
                     }
                     Constants.ADD_FEATURE_TYPE_EDIT_TEXT -> {
                         EditTextPreference(requireContext()).apply {
@@ -824,11 +708,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val customFont: Preference? = findPreference(Constants.PREF_CUSTOM_FONT)
 
         val variations: PreferenceCategory? = findPreference(Constants.PREF_CATEGORY_VARIATIONS)
-        val ital: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_ITALIC)
-        val opsz: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_OPTICAL_SIZE)
-        val slnt: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_SLANT)
-        val wdth: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WIDTH)
-        val wght: SeekBarPreference? = findPreference(Constants.PREF_VARIATION_WEIGHT)
+        val ital: SliderPreference? = findPreference(Constants.PREF_VARIATION_ITALIC)
+        val opsz: SliderPreference? = findPreference(Constants.PREF_VARIATION_OPTICAL_SIZE)
+        val slnt: SliderPreference? = findPreference(Constants.PREF_VARIATION_SLANT)
+        val wdth: SliderPreference? = findPreference(Constants.PREF_VARIATION_WIDTH)
+        val wght: SliderPreference? = findPreference(Constants.PREF_VARIATION_WEIGHT)
         val variationEditor: EditTextPreference? = findPreference(Constants.PREF_VARIATION_EDITOR)
         val addVariation: Preference? = findPreference(Constants.PREF_ADD_FONT_VARIATION)
         val editVariation: Preference? = findPreference(Constants.PREF_EDIT_VARIATION)
@@ -997,7 +881,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             setVariation(fontVariationSettings.toFeatures())
         }
 
-        // ── Variation axis change handlers (shared between SeekBar & Slider) ──
+        // ── Variation axis change handlers (shared by all sliders) ──
         val italHandler: (Any?) -> Boolean = { newValue ->
             val value = newValue.toString().toFloatOrNull()
 
@@ -1053,170 +937,74 @@ class OptionsFragment : PreferenceFragmentCompat() {
             } else false
         }
 
-        // ── Check MD3 Slider toggle ──
-        val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(requireContext())
-            .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
-
-        val showFloatingLabel = PreferenceManager.getDefaultSharedPreferences(requireContext())
-            .getBoolean(Constants.PREF_SHOW_FLOATING_LABEL, false)
-
-        if (useMd3Slider && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Replace SeekBarPreferences with MD3 SliderPreferences
-            variations?.let { category ->
-                val replacements = listOf(
-                    SliderReplacement(
-                        seekBarKey = Constants.PREF_VARIATION_ITALIC,
-                        titleRes = R.string.variation_italic,
-                        summary = "ital",
-                        valueFrom = 0f,
-                        valueTo = 10f,
-                        stepSize = 1f,
-                        defaultValue = 0f,
-                        showLabel = false,
-                        valueScale = 0.1f,
-                        valueOffset = 0f,
-                        decimalPlaces = 1,  // ← 新增
-                        handler = italHandler
-                    ),
-                    SliderReplacement(
-                        seekBarKey = Constants.PREF_VARIATION_OPTICAL_SIZE,
-                        titleRes = R.string.variation_optical_size,
-                        summary = "opsz",
-                        valueFrom = 1f,
-                        valueTo = 1440f,
-                        stepSize = 1f,
-                        defaultValue = 1f,
-                        showLabel = false,
-                        valueScale = 0.1f,
-                        valueOffset = 0f,
-                        decimalPlaces = 1,  // ← 新增
-                        handler = opszHandler
-                    ),
-                    SliderReplacement(
-                        seekBarKey = Constants.PREF_VARIATION_SLANT,
-                        titleRes = R.string.variation_slant,
-                        summary = "slnt",
-                        valueFrom = 0f,
-                        valueTo = 180f,
-                        stepSize = 1f,
-                        defaultValue = 90f,
-                        showLabel = false,
-                        valueScale = 1f,
-                        valueOffset = -90f,
-                        decimalPlaces = 0,  // ← 新增
-                        handler = slntHandler
-                    ),
-                    SliderReplacement(
-                        seekBarKey = Constants.PREF_VARIATION_WIDTH,
-                        titleRes = R.string.variation_width,
-                        summary = "wdth",
-                        valueFrom = 0f,
-                        valueTo = 2000f,
-                        stepSize = 1f,
-                        defaultValue = 1000f,
-                        showLabel = false,
-                        valueScale = 0.1f,
-                        valueOffset = 0f,
-                        decimalPlaces = 1,  // ← 新增
-                        handler = wdthHandler
-                    ),
-                    SliderReplacement(
-                        seekBarKey = Constants.PREF_VARIATION_WEIGHT,
-                        titleRes = R.string.variation_weight,
-                        summary = "wght",
-                        valueFrom = 1f,
-                        valueTo = 1000f,
-                        stepSize = 1f,
-                        defaultValue = 400f,
-                        showLabel = true,
-                        valueScale = 1f,
-                        valueOffset = 0f,
-                        decimalPlaces = 0,  // ← 新增
-                        handler = wghtHandler
-                    )
-                )
-
-                val replacementMap = replacements.associateBy { it.seekBarKey }
-                // ── 第一步：快照当前所有 Preference（保留原始顺序）──
-                val snapshot = mutableListOf<Preference>()
-                category.forEach { snapshot.add(it) }
-                // ── 第二步：一次性清空（仅 1 次 notifyChanged）──
-                category.removeAll()
-                // ── 第三步：按原始顺序重建，SeekBar 替换为 Slider，其余原样放回 ──
-                var orderIdx = 0
-                for (pref in snapshot) {
-                    val r = replacementMap[pref.key]
-                    if (r != null) {
-                        // 从已保存的状态中读取当前值，实现无缝切换
-                        val currentValue = when (r.seekBarKey) {
-                            Constants.PREF_VARIATION_ITALIC ->
-                                fontVariationSettings[Constants.VARIATION_AXIS_ITALIC]
-                                    ?.toFloatOrNull()?.let { it * 10 } ?: r.defaultValue
-                            Constants.PREF_VARIATION_OPTICAL_SIZE ->
-                                fontVariationSettings[Constants.VARIATION_AXIS_OPTICAL_SIZE]
-                                    ?.toFloatOrNull()?.let { it * 10 } ?: r.defaultValue
-                            Constants.PREF_VARIATION_SLANT ->
-                                fontVariationSettings[Constants.VARIATION_AXIS_SLANT]
-                                    ?.toFloatOrNull()?.let { it + 90 } ?: r.defaultValue
-                            Constants.PREF_VARIATION_WIDTH ->
-                                fontVariationSettings[Constants.VARIATION_AXIS_WIDTH]
-                                    ?.toFloatOrNull()?.let { it * 10 } ?: r.defaultValue
-                            Constants.PREF_VARIATION_WEIGHT ->
-                                fontVariationSettings[Constants.VARIATION_AXIS_WEIGHT]
-                                    ?.toFloatOrNull() ?: r.defaultValue
-                            else -> r.defaultValue
-                        }
-                        val sliderPref = SliderPreference(requireContext()).apply {
-                            key = r.seekBarKey
-                            title = getString(r.titleRes)
-                            summary = r.summary
-                            valueFrom = r.valueFrom
-                            valueTo = r.valueTo
-                            stepSize = r.stepSize
-                            sliderValue = currentValue
-                            showLabel = r.showLabel
-                            floatingLabelEnabled = showFloatingLabel
-                            valueScale = r.valueScale
-                            valueOffset = r.valueOffset
-                            decimalPlaces = r.decimalPlaces  // ← 新增
-                            isPersistent = false
-                            setOnPreferenceChangeListener { _, newValue -> r.handler(newValue) }
-                            order = orderIdx++
-                        }
-                        category.addPreference(sliderPref)
-                    } else {
-                        pref.order = orderIdx++
-                        category.addPreference(pref)
-                    }
-                }
-            }
-        } else {
-            // ── 从 fontVariationSettings 恢复 SeekBar 值（逆转换）──
-            fontVariationSettings[Constants.VARIATION_AXIS_ITALIC]?.toFloatOrNull()?.let {
-                ital?.value = (it * 10).toInt()
-            }
-            fontVariationSettings[Constants.VARIATION_AXIS_OPTICAL_SIZE]?.toFloatOrNull()?.let {
-                opsz?.value = (it * 10).toInt()
-            }
-            fontVariationSettings[Constants.VARIATION_AXIS_SLANT]?.toFloatOrNull()?.let {
-                slnt?.value = (it + 90).toInt()
-            }
-            fontVariationSettings[Constants.VARIATION_AXIS_WIDTH]?.toFloatOrNull()?.let {
-                wdth?.value = (it * 10).toInt()
-            }
-            fontVariationSettings[Constants.VARIATION_AXIS_WEIGHT]?.toFloatOrNull()?.let {
-                wght?.value = it.toInt()
-            }
-
-            // ── 设置 listeners ──
-            ital?.setOnPreferenceChangeListener { _, newValue -> italHandler(newValue) }
-            opsz?.setOnPreferenceChangeListener { _, newValue -> opszHandler(newValue) }
-            slnt?.setOnPreferenceChangeListener { _, newValue -> slntHandler(newValue) }
-            wdth?.setOnPreferenceChangeListener { _, newValue -> wdthHandler(newValue) }
-            wght?.setOnPreferenceChangeListener { _, newValue -> wghtHandler(newValue) }
+        // ── 内置可变轴：一律使用 Material 3 Slider ──
+        fun bindAxis(
+            pref: SliderPreference?,
+            axisKey: String,
+            from: Float,
+            to: Float,
+            defaultValue: Float,
+            uiScale: Float,
+            uiOffset: Float,
+            labelScale: Float,
+            labelOffset: Float,
+            decimals: Int,
+            showValue: Boolean,
+            handler: (Any?) -> Boolean
+        ) {
+            pref ?: return
+            pref.valueFrom = from
+            pref.valueTo = to
+            pref.stepSize = 1f
+            val uiValue = fontVariationSettings[axisKey]?.toFloatOrNull()
+                ?.let { it * uiScale + uiOffset } ?: defaultValue
+            pref.sliderValue = uiValue.coerceIn(from, to)
+            pref.showLabel = showValue
+            pref.valueScale = labelScale
+            pref.valueOffset = labelOffset
+            pref.decimalPlaces = decimals
+            pref.isPersistent = false
+            pref.setOnPreferenceChangeListener { _, newValue -> handler(newValue) }
+            pref.refresh()
         }
 
-        // ── 恢复 Feature 开关状态（MD2/MD3 通用，必须在 listener 设置前）──
+        bindAxis(
+            ital, Constants.VARIATION_AXIS_ITALIC,
+            from = 0f, to = 10f, defaultValue = 0f,
+            uiScale = 10f, uiOffset = 0f,
+            labelScale = 0.1f, labelOffset = 0f,
+            decimals = 1, showValue = false, handler = italHandler
+        )
+        bindAxis(
+            opsz, Constants.VARIATION_AXIS_OPTICAL_SIZE,
+            from = 1f, to = 1440f, defaultValue = 1f,
+            uiScale = 10f, uiOffset = 0f,
+            labelScale = 0.1f, labelOffset = 0f,
+            decimals = 1, showValue = false, handler = opszHandler
+        )
+        bindAxis(
+            slnt, Constants.VARIATION_AXIS_SLANT,
+            from = 0f, to = 180f, defaultValue = 90f,
+            uiScale = 1f, uiOffset = 90f,
+            labelScale = 1f, labelOffset = -90f,
+            decimals = 0, showValue = false, handler = slntHandler
+        )
+        bindAxis(
+            wdth, Constants.VARIATION_AXIS_WIDTH,
+            from = 0f, to = 2000f, defaultValue = 1000f,
+            uiScale = 10f, uiOffset = 0f,
+            labelScale = 0.1f, labelOffset = 0f,
+            decimals = 1, showValue = false, handler = wdthHandler
+        )
+        bindAxis(
+            wght, Constants.VARIATION_AXIS_WEIGHT,
+            from = 1f, to = 1000f, defaultValue = 400f,
+            uiScale = 1f, uiOffset = 0f,
+            labelScale = 1f, labelOffset = 0f,
+            decimals = 0, showValue = true, handler = wghtHandler
+        )
+
+        // ── 恢复 Feature 开关状态（必须在 listener 设置前）──
         fontFeatureSettings[Constants.FEATURE_CHWS]?.let {
             chws?.isChecked = (it == "1")
         }
@@ -1228,7 +1016,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
 
         // ── 恢复自定义参数 UI 控件 ──
-        restoreCustomPrefs(useMd3Slider, showFloatingLabel) { settings -> setVariation(settings) }
+        restoreCustomPrefs { settings -> setVariation(settings) }
 
         variationEditor?.setOnPreferenceChangeListener { _, newValue ->
             try {
@@ -1640,19 +1428,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 else -> return
             }
             
-            val pref = findPreference<Preference>(key)
-            val useMd3Slider = PreferenceManager.getDefaultSharedPreferences(requireContext())
-                .getBoolean(Constants.PREF_USE_MD3_SLIDER, false)
-                
-            if (useMd3Slider && pref is SliderPreference) {
-                pref.valueFrom = uiMin
-                pref.valueTo = uiMax
-                pref.sliderValue = pref.sliderValue.coerceIn(uiMin, uiMax)
-            } else if (pref is SeekBarPreference) {
-                pref.min = uiMin.toInt()
-                pref.max = uiMax.toInt()
-                pref.value = pref.value.coerceIn(uiMin.toInt(), uiMax.toInt())
-            }
+            val pref = findPreference<SliderPreference>(key) ?: return
+            pref.valueFrom = uiMin
+            pref.valueTo = uiMax
+            pref.sliderValue = pref.sliderValue.coerceIn(uiMin, uiMax)
+            pref.refresh()
             Toast.makeText(requireContext(), R.string.metadata_axis_range_updated, Toast.LENGTH_SHORT).show()
         }
 
@@ -1904,21 +1684,3 @@ class OptionsFragment : PreferenceFragmentCompat() {
         override fun getItemCount() = entries.size
     }
 }
-
-/**
- * Describes a SeekBarPreference → SliderPreference replacement.
- */
-private data class SliderReplacement(
-    val seekBarKey: String,
-    val titleRes: Int,
-    val summary: String,
-    val valueFrom: Float,
-    val valueTo: Float,
-    val stepSize: Float,
-    val defaultValue: Float,
-    val showLabel: Boolean,
-    val valueScale: Float,
-    val valueOffset: Float,
-    val decimalPlaces: Int,  // ← 新增
-    val handler: (Any?) -> Boolean
-)
