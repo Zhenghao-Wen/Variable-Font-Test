@@ -6,6 +6,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.TextView
 import androidx.preference.Preference
+import androidx.preference.PreferenceManager
 import androidx.preference.PreferenceViewHolder
 import com.google.android.material.slider.Slider
 import kotlin.math.pow
@@ -14,9 +15,10 @@ import kotlin.math.pow
  * A [Preference] that displays the Material 3 [Slider] used for every slider in the app
  * (the legacy MD2 SeekBar has been removed).
  *
- * The floating value label is always enabled, and correctly resolves ?attr/colorPrimary
- * for active track and thumb, ensuring proper saturation with dynamic colors
- * (system_accent1_200 in dark mode).
+ * The floating value label and tick marks are controlled by toolbar toggles
+ * (app:labelBehavior / app:tickVisibilityMode equivalents), and the widget correctly
+ * resolves ?attr/colorPrimary for active track and thumb so it keeps proper saturation
+ * with dynamic colors (system_accent1_200 in dark mode).
  */
 class SliderPreference @JvmOverloads constructor(
     context: Context,
@@ -49,6 +51,12 @@ class SliderPreference @JvmOverloads constructor(
     private companion object {
         /** LabelBehavior.FLOATING = 0 */
         const val LABEL_FLOATING = 0
+
+        /** LabelBehavior.GONE = 2（@Retention(SOURCE)，无法导入，使用稳定 ABI 常量） */
+        const val LABEL_GONE = 2
+
+        /** TickVisibilityMode.TICK_VISIBILITY_AUTO_LIMIT = 0 */
+        const val TICK_VISIBILITY_AUTO_LIMIT = 0
 
         /**
          * TickVisibilityMode.TICK_VISIBILITY_HIDDEN = 2。
@@ -109,15 +117,31 @@ class SliderPreference @JvmOverloads constructor(
         s.valueTo = to
         s.stepSize = step
 
-        // ── 拖动浮动标签：始终启用（对所有滑块生效）──
-        s.labelBehavior = LABEL_FLOATING
-        s.setLabelFormatter { value ->
-            val display = value * valueScale + valueOffset
-            formatValue(display)
+        // ── 数值浮标与刻度标签：由工具栏开关控制（对所有滑块生效）──
+        val displayPrefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val showValueLabel = displayPrefs.getBoolean(
+            Constants.PREF_SHOW_SLIDER_VALUE_LABEL, true
+        )
+        val showTicks = displayPrefs.getBoolean(
+            Constants.PREF_SHOW_SLIDER_TICKS, false
+        )
+
+        // app:labelBehavior 等价：FLOATING → 显示拖动数值浮标，GONE → 隐藏
+        if (showValueLabel) {
+            s.labelBehavior = LABEL_FLOATING
+            s.setLabelFormatter { value ->
+                val display = value * valueScale + valueOffset
+                formatValue(display)
+            }
+        } else {
+            s.labelBehavior = LABEL_GONE
+            s.setLabelFormatter(null)
         }
-        // ── 隐藏轨道步进圆点（tick marks）：步进值小则圆点密布，隐藏后更整洁 ──
-        // 此处统一生效，预设滑块与自定义参数滑块均经 SliderPreference 渲染，一并覆盖。
-        s.setTickVisibilityMode(TICK_VISIBILITY_HIDDEN)
+
+        // app:tickVisibilityMode 等价：AUTO_LIMIT → 按密度自动限制刻度，HIDDEN → 不显示
+        s.setTickVisibilityMode(
+            if (showTicks) TICK_VISIBILITY_AUTO_LIMIT else TICK_VISIBILITY_HIDDEN
+        )
 
         // ── 轨道两端对齐补偿（仅 MD3 Expressive 样式需要）──
         // MD3 Legacy 样式目标是与 MD2 SeekBar 度量对齐，直接使用其默认布局即可，

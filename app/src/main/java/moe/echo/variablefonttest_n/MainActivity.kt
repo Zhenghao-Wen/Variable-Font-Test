@@ -120,6 +120,12 @@ class MainActivity : AppCompatActivity() {
         toolbar?.let { tb ->
             // 从 SharedPreferences 同步 checkbox 状态到 Toolbar 的菜单实例
             val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+            val showValueLabel = prefs.getBoolean(Constants.PREF_SHOW_SLIDER_VALUE_LABEL, true)
+            tb.menu.findItem(R.id.action_show_slider_value_label)?.isChecked = showValueLabel
+
+            val showTicks = prefs.getBoolean(Constants.PREF_SHOW_SLIDER_TICKS, false)
+            tb.menu.findItem(R.id.action_show_slider_ticks)?.isChecked = showTicks
+
             val useLegacySlider = prefs.getBoolean(Constants.PREF_USE_LEGACY_SLIDER, false)
             tb.menu.findItem(R.id.action_use_legacy_slider)?.isChecked = useLegacySlider
 
@@ -128,6 +134,24 @@ class MainActivity : AppCompatActivity() {
 
             tb.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
+                    R.id.action_show_slider_value_label -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_SHOW_SLIDER_VALUE_LABEL, newState)
+                            .apply()
+                        recreate()
+                        true
+                    }
+                    R.id.action_show_slider_ticks -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_SHOW_SLIDER_TICKS, newState)
+                            .apply()
+                        recreate()
+                        true
+                    }
                     R.id.action_use_legacy_slider -> {
                         val newState = !menuItem.isChecked
                         menuItem.isChecked = newState

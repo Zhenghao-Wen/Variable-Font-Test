@@ -62,6 +62,10 @@
     <string name="serif">衬线</string>
     <string name="custom_font">自定义</string>
 
+    <!-- Slider display toggles (Toolbar menu) -->
+    <string name="show_slider_value_label">显示滑块数值浮标</string>
+    <string name="show_slider_ticks">显示滑块刻度标签</string>
+
     <!-- Slider style toggle (Toolbar menu) -->
     <string name="use_legacy_slider">使用 MD3 Legacy 滑块样式</string>
 

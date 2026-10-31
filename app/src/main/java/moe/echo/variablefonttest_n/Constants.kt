@@ -44,6 +44,12 @@ object Constants {
     // ── Slider style：false = MD3 Expressive（默认），true = MD3 Legacy ──
     const val PREF_USE_LEGACY_SLIDER = "use_legacy_slider"
 
+    // ── Slider 附加显示项 ──
+    /** 显示拖动数值浮标（labelBehavior = FLOATING / GONE），默认开启 */
+    const val PREF_SHOW_SLIDER_VALUE_LABEL = "show_slider_value_label"
+    /** 显示滑块刻度标签（tickVisibilityMode = AUTO_LIMIT / HIDDEN），默认关闭 */
+    const val PREF_SHOW_SLIDER_TICKS = "show_slider_ticks"
+
     // ── Keep params on launch toggle ──
     const val PREF_KEEP_PARAMS = "keep_params_on_launch"
     const val PREF_CUSTOM_PREFS_META = "custom_prefs_metadata"

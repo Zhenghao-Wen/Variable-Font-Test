@@ -66,6 +66,10 @@
     <string name="feature_type_edit_text">Text</string>
     <string name="invalid_tag_type">Invalid tag type selected</string>
 
+    <!-- Slider display toggles (Toolbar menu) -->
+    <string name="show_slider_value_label">Show slider value label</string>
+    <string name="show_slider_ticks">Show slider tick marks</string>
+
     <!-- Slider style toggle (Toolbar menu) -->
     <string name="use_legacy_slider">Use MD3 Legacy slider style</string>
 

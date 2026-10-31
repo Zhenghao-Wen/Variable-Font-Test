@@ -2,6 +2,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_show_slider_value_label"
+        android:title="@string/show_slider_value_label"
+        android:checkable="true"
+        android:checked="true"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_show_slider_ticks"
+        android:title="@string/show_slider_ticks"
+        android:checkable="true"
+        android:checked="false"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_use_legacy_slider"
         android:title="@string/use_legacy_slider"
         android:checkable="true"
