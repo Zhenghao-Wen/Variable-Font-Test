@@ -67,7 +67,21 @@ class SliderPreference @JvmOverloads constructor(
 
     init {
         layoutResource = R.layout.preference_widget_slider
-        isIconSpaceReserved = true
+        // MD3 Legacy 样式需要与旧 MD2 SeekBar 行完全对齐（无图标占位）；
+        // Expressive 保持 Material 3 偏好行的图标区留白。
+        isIconSpaceReserved = !isLegacySliderStyle()
+    }
+
+    /** 当前主题下的 Slider 样式是否为 MD3 Legacy（Widget.Material3.Slider.Legacy）。 */
+    private fun isLegacySliderStyle(): Boolean = try {
+        val attrs = context.obtainStyledAttributes(
+            intArrayOf(com.google.android.material.R.attr.sliderStyle)
+        )
+        val styleRes = attrs.getResourceId(0, 0)
+        attrs.recycle()
+        styleRes != 0 && context.resources.getResourceEntryName(styleRes) == "Widget.Material3.Slider.Legacy"
+    } catch (_: Exception) {
+        false
     }
 
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
@@ -105,15 +119,17 @@ class SliderPreference @JvmOverloads constructor(
         // 此处统一生效，预设滑块与自定义参数滑块均经 SliderPreference 渲染，一并覆盖。
         s.setTickVisibilityMode(TICK_VISIBILITY_HIDDEN)
 
-        // ── 轨道两端对齐补偿（留距一致 + 呼吸间距 δ）──
-        // 第一步：负 margin 抵消 trackSidePadding 内缩——左缘对齐标题左缘、
-        //         wght 右缘贴合数值区、其余右缘回退一个 inset（与 wght 数值区留距观感一致）。
-        // 第二步：两端各加 δ 呼吸间距——左端右移 δ、其余右端再左移 δ（wght 右端贴合数值区，不加 δ）。
+        // ── 轨道两端对齐补偿（仅 MD3 Expressive 样式需要）──
+        // MD3 Legacy 样式目标是与 MD2 SeekBar 度量对齐，直接使用其默认布局即可，
+        // 不再做额外负 margin 补偿，避免与 SeekBar 观感产生偏差。
         //
-        // 这里必须用公开的 getTrackSidePadding()，不能用反射读取私有字段 trackSidePadding：
-        // R8 压缩构建会重命名私有字段，反射读不到值（inset 恒为 0），整个补偿被跳过，
-        // 表现为 R8 包 Slider 两端比非 R8 包内缩（约 4dp），而非 R8 包正常。
-        val inset = s.trackSidePadding
+        // Expressive：负 margin 抵消 trackSidePadding 内缩——左缘对齐标题左缘、
+        // wght 右缘贴合数值区、其余右缘回退一个 inset。
+        // 必须用公开的 getTrackSidePadding()，不能反射读取私有字段 trackSidePadding：
+        // R8 会重命名私有字段，反射取不到值（inset 恒为 0），补偿被跳过，
+        // 表现为 R8 包 Slider 两端比非 R8 包内缩（约 4dp）。
+        val isLegacyStyle = isLegacySliderStyle()
+        val inset = if (isLegacyStyle) 0 else s.trackSidePadding
         if (inset > 0) {
             val density = s.resources.displayMetrics.density
             val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()
@@ -153,7 +169,7 @@ class SliderPreference @JvmOverloads constructor(
                 // wght：数值文字右缘内缩 WGHT_ASSEMBLY_SHIFT_DP，
                 // 使轨道右缘连带数值文字整体左移。
                 // （仅 showLabel=true 即 wght 生效；此处 this 为 layoutParams）
-                if (showLabel) {
+                if (showLabel && !isLegacyStyle) {
                     (this as? android.view.ViewGroup.MarginLayoutParams)?.marginEnd =
                         (WGHT_ASSEMBLY_SHIFT_DP * density).toInt()
                 }

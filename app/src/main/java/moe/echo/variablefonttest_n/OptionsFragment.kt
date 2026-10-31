@@ -390,6 +390,16 @@ class OptionsFragment : PreferenceFragmentCompat() {
     // ═══ MD3 EditTextPreference 对话框接管结束 ═══
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        // Slider 样式：默认 MD3 Expressive（Widget.Material3.Slider），
+        // 可在工具栏切换为 MD3 Legacy（Widget.Material3.Slider.Legacy）。
+        // 在 inflate 偏好之前应用 overlay，确保 Slider 以目标 style 创建。
+        val useLegacySlider = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            .getBoolean(Constants.PREF_USE_LEGACY_SLIDER, false)
+        requireContext().theme.applyStyle(
+            if (useLegacySlider) R.style.ThemeOverlay_App_Slider_Legacy
+            else R.style.ThemeOverlay_App_Slider_Expressive,
+            true
+        )
         setPreferencesFromResource(R.xml.options, rootKey)
     }
 

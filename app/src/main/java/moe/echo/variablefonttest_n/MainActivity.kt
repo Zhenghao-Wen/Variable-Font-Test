@@ -120,11 +120,23 @@ class MainActivity : AppCompatActivity() {
         toolbar?.let { tb ->
             // 从 SharedPreferences 同步 checkbox 状态到 Toolbar 的菜单实例
             val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+            val useLegacySlider = prefs.getBoolean(Constants.PREF_USE_LEGACY_SLIDER, false)
+            tb.menu.findItem(R.id.action_use_legacy_slider)?.isChecked = useLegacySlider
+
             val keepParams = prefs.getBoolean(Constants.PREF_KEEP_PARAMS, false)
             tb.menu.findItem(R.id.action_keep_params)?.isChecked = keepParams
 
             tb.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
+                    R.id.action_use_legacy_slider -> {
+                        val newState = !menuItem.isChecked
+                        menuItem.isChecked = newState
+                        prefs.edit()
+                            .putBoolean(Constants.PREF_USE_LEGACY_SLIDER, newState)
+                            .apply()
+                        recreate()
+                        true
+                    }
                     R.id.action_keep_params -> {
                         val newState = !menuItem.isChecked
                         menuItem.isChecked = newState

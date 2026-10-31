@@ -66,6 +66,9 @@
     <string name="feature_type_edit_text">Text</string>
     <string name="invalid_tag_type">Invalid tag type selected</string>
 
+    <!-- Slider style toggle (Toolbar menu) -->
+    <string name="use_legacy_slider">Use MD3 Legacy slider style</string>
+
     <!-- Keep params on launch toggle -->
     <string name="keep_params_on_launch">Keep the current state on next launch</string>
 

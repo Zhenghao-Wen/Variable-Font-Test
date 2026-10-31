@@ -41,6 +41,9 @@ object Constants {
     const val ADD_FEATURE_TYPE_SEEK_BAR = "seekBar"
     const val ADD_FEATURE_TYPE_EDIT_TEXT = "editText"
 
+    // ── Slider style：false = MD3 Expressive（默认），true = MD3 Legacy ──
+    const val PREF_USE_LEGACY_SLIDER = "use_legacy_slider"
+
     // ── Keep params on launch toggle ──
     const val PREF_KEEP_PARAMS = "keep_params_on_launch"
     const val PREF_CUSTOM_PREFS_META = "custom_prefs_metadata"

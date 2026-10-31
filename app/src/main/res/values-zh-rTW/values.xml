@@ -62,6 +62,9 @@
     <string name="feature_type_edit_text">文字</string>
     <string name="invalid_tag_type">選擇的標籤類型無效</string>
 
+    <!-- Slider style toggle (Toolbar menu) -->
+    <string name="use_legacy_slider">使用 MD3 Legacy 滑桿樣式</string>
+
     <!-- Keep params on launch toggle -->
     <string name="keep_params_on_launch">下次啟動時維持現狀</string>
 

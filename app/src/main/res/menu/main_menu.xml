@@ -2,6 +2,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_use_legacy_slider"
+        android:title="@string/use_legacy_slider"
+        android:checkable="true"
+        android:checked="false"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_keep_params"
         android:title="@string/keep_params_on_launch"
         android:checkable="true"
