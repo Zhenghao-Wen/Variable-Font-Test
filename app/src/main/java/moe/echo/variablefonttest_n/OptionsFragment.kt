@@ -1226,47 +1226,72 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private fun MutableMap<String, String>.toFeatures(): String =
         this.toList().joinToString { "'${it.first}' ${it.second}" }
 
+    /** 自定义字体的持久缓存目录（files 目录，不会被系统当缓存清理，也不参与备份）。 */
+    private fun fontCacheDir(): File? {
+        val base = context?.noBackupFilesDir ?: return null
+        val dir = File(base, "fonts")
+        if (!dir.isDirectory && !dir.mkdirs()) return null
+        return dir
+    }
+
+    private fun fontCacheFile(): File? = fontCacheDir()?.let { File(it, "imported_font.bin") }
+
     /**
-     * 把 content:// 或 file:// URI 的内容复制到 cacheDir 下的普通文件。
+     * 把 content:// 或 file:// URI 的内容复制到应用私有目录的普通文件。
      *
      * 部分应用提供的 ContentProvider 只支持 openInputStream，或返回不可 seek 的管道，
      * 直接调用 openFileDescriptor + Typeface.Builder / FileInputStream 会失败，
      * 表现为从这些应用打开的字体内容无法解析。统一先缓存为普通文件，
      * 后续设置 Typeface 与解析元数据均基于该文件。
+     *
+     * 缓存写在 noBackupFilesDir 而不是 cacheDir：初始临时授权失效、进程重启后仍然
+     * 可以继续加载，也不会被系统的缓存清理回收。
      */
     private fun cacheFontFromUri(uri: Uri): File? {
-        val cacheDir = context?.cacheDir ?: return null
-        val fontFile = File(cacheDir, "imported_font.bin")
+        val dir = fontCacheDir() ?: return null
+        val target = File(dir, "imported_font.bin")
+        val temp = File(dir, "imported_font.tmp")
         return try {
             val inputStream = context?.contentResolver?.openInputStream(uri) ?: return null
             inputStream.use { input ->
-                FileOutputStream(fontFile).use { output ->
+                FileOutputStream(temp).use { output ->
                     input.copyTo(output, 8 * 1024)
                 }
             }
-            if (fontFile.length() == 0L) {
-                fontFile.delete()
+            if (temp.length() == 0L) {
+                temp.delete()
                 null
             } else {
+                // 原子替换：只在完整复制成功后覆盖旧缓存，
+                // 避免授权中途失效 / 读取异常时损坏已有的可用缓存。
+                if (target.exists() && !target.delete()) {
+                    temp.delete()
+                    return null
+                }
+                if (!temp.renameTo(target)) {
+                    temp.copyTo(target, overwrite = true)
+                    temp.delete()
+                }
                 PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
                     .putString(Constants.PREF_CACHED_FONT_URI, uri.toString())
                     .apply()
-                fontFile
+                target
             }
         } catch (e: SecurityException) {
+            temp.delete()
             throw e
         } catch (e: Exception) {
+            temp.delete()
             Log.w(TAG, "cacheFontFromUri: failed to read $uri", e)
             null
         }
     }
 
-    /** 若 cacheDir 中的缓存文件正是该 URI 的内容，返回它，供 URI 读取失败时兜底。 */
+    /** 若持久缓存正是该 URI 的内容，返回它，供 URI 读取失败时兜底。 */
     private fun cachedFontFile(uri: Uri): File? {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         if (prefs.getString(Constants.PREF_CACHED_FONT_URI, null) != uri.toString()) return null
-        val cacheDir = context?.cacheDir ?: return null
-        val file = File(cacheDir, "imported_font.bin")
+        val file = fontCacheFile() ?: return null
         return if (file.isFile && file.length() > 0L) file else null
     }
 
