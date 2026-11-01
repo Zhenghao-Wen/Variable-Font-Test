@@ -67,7 +67,7 @@
     <string name="show_slider_ticks">顯示滑桿刻度標籤</string>
 
     <!-- Slider style toggle (Toolbar menu) -->
-    <string name="use_legacy_slider">使用 MD3 Legacy 滑桿樣式</string>
+    <string name="use_legacy_slider">使用舊版滑桿樣式</string>
 
     <!-- Keep params on launch toggle -->
     <string name="keep_params_on_launch">下次啟動時維持現狀</string>
