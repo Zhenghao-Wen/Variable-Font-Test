@@ -54,6 +54,9 @@ object Constants {
     const val PREF_KEEP_PARAMS = "keep_params_on_launch"
     const val PREF_CUSTOM_PREFS_META = "custom_prefs_metadata"
     
+    // ── Cached font URI（记录 cacheDir/imported_font.bin 对应哪个 URI）──
+    const val PREF_CACHED_FONT_URI = "cached_font_uri"
+
     // ── Font family persistence ──
     const val PREF_FONT_FAMILY = "pref_font_family"
     const val PREF_CUSTOM_FONT_URI = "pref_custom_font_uri"

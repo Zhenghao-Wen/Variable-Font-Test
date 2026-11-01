@@ -49,7 +49,6 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import kotlin.collections.MutableMap
 import kotlin.collections.contains
 import kotlin.collections.filter
@@ -1227,19 +1226,48 @@ class OptionsFragment : PreferenceFragmentCompat() {
     private fun MutableMap<String, String>.toFeatures(): String =
         this.toList().joinToString { "'${it.first}' ${it.second}" }
 
-    private fun copyStreamToFile(inputStream: InputStream, outputFile: File) {
-        inputStream.use { input ->
-            val outputStream = FileOutputStream(outputFile)
-            outputStream.use { output ->
-                val buffer = ByteArray(4 * 1024) // buffer size
-                while (true) {
-                    val byteCount = input.read(buffer)
-                    if (byteCount < 0) break
-                    output.write(buffer, 0, byteCount)
+    /**
+     * 把 content:// 或 file:// URI 的内容复制到 cacheDir 下的普通文件。
+     *
+     * 部分应用提供的 ContentProvider 只支持 openInputStream，或返回不可 seek 的管道，
+     * 直接调用 openFileDescriptor + Typeface.Builder / FileInputStream 会失败，
+     * 表现为从这些应用打开的字体内容无法解析。统一先缓存为普通文件，
+     * 后续设置 Typeface 与解析元数据均基于该文件。
+     */
+    private fun cacheFontFromUri(uri: Uri): File? {
+        val cacheDir = context?.cacheDir ?: return null
+        val fontFile = File(cacheDir, "imported_font.bin")
+        return try {
+            val inputStream = context?.contentResolver?.openInputStream(uri) ?: return null
+            inputStream.use { input ->
+                FileOutputStream(fontFile).use { output ->
+                    input.copyTo(output, 8 * 1024)
                 }
-                output.flush()
             }
+            if (fontFile.length() == 0L) {
+                fontFile.delete()
+                null
+            } else {
+                PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                    .putString(Constants.PREF_CACHED_FONT_URI, uri.toString())
+                    .apply()
+                fontFile
+            }
+        } catch (e: SecurityException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "cacheFontFromUri: failed to read $uri", e)
+            null
         }
+    }
+
+    /** 若 cacheDir 中的缓存文件正是该 URI 的内容，返回它，供 URI 读取失败时兜底。 */
+    private fun cachedFontFile(uri: Uri): File? {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        if (prefs.getString(Constants.PREF_CACHED_FONT_URI, null) != uri.toString()) return null
+        val cacheDir = context?.cacheDir ?: return null
+        val file = File(cacheDir, "imported_font.bin")
+        return if (file.isFile && file.length() > 0L) file else null
     }
 
     private fun changeFontFromUri(uri: Uri) {
@@ -1260,81 +1288,67 @@ class OptionsFragment : PreferenceFragmentCompat() {
         activity?.runOnUiThread {
             val previewContent: EditText? = parentFragment?.view?.findViewById(R.id.preview_content)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val ttcIndex: EditTextPreference? = findPreference(Constants.PREF_TTC_INDEX)
-                val ttcIndexValue = ttcIndex?.text?.toIntOrNull() ?: 0
+            var permissionLost = false
+            val fontFile = try {
+                // 优先按 URI 重新读取（保证拿到最新内容）；
+                // 读取失败但缓存文件就是该 URI 的内容时，用缓存兜底。
+                cacheFontFromUri(uri) ?: cachedFontFile(uri)
+            } catch (e: SecurityException) {
+                permissionLost = true
+                cachedFontFile(uri)
+            }
 
-                try {
-                    activity?.contentResolver?.openFileDescriptor(uri, "r")?.use {
-                        val builder = Typeface.Builder(it.fileDescriptor)
-                        builder.setFontVariationSettings(fontVariationSettings.toFeatures())
-                        builder.setTtcIndex(ttcIndexValue)
-                        previewContent?.typeface = builder.build()
-                        updateMetadataVisibility()
-                        return@runOnUiThread
-                    } ?: run {
-                        Log.w(TAG, "changeFontFromUri: Failed to set font.")
-                        Log.w(TAG, "changeFontFromUri: Uri: $uri")
-                        Log.w(TAG, "changeFontFromUri: Uri?.path: ${uri.path}")
-                        Log.w(TAG, "changeFontFromUri: activity == null? ${activity == null}")
-                        Log.w(
-                            TAG,
-                            "changeFontFromUri: activity?.contentResolver == null? ${activity?.contentResolver == null}"
-                        )
-                    }
-                } catch (e: SecurityException) {
-                    // 外部打开的字体权限过期，回退到默认字体
+            if (fontFile == null) {
+                if (permissionLost) {
+                    // 外部打开的字体权限过期且没有可用缓存，回退到默认字体
                     val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
                     prefs.edit()
                         .remove(Constants.PREF_CUSTOM_FONT_URI)
                         .putString(Constants.PREF_FONT_FAMILY, "default")
                         .apply()
-                    
+
                     // 重新获取 UI 元素并更新
                     findPreference<ListPreference>(Constants.PREF_FONT_FAMILIES)?.value = "default"
                     findPreference<Preference>(Constants.PREF_CUSTOM_FONT)?.isVisible = false
                     findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)?.isVisible = false
-                    
+
                     val preview = parentFragment?.view?.findViewById<EditText>(R.id.preview_content)
                     preview?.typeface = Typeface.DEFAULT
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         preview?.fontVariationSettings = fontVariationSettings.toFeatures()
                     }
-                    
+
                     updateMetadataVisibility()
                     Toast.makeText(context, R.string.external_font_permission_expired, Toast.LENGTH_LONG).show()
                     return@runOnUiThread
                 }
-            } else {
-                val cacheDir = context?.cacheDir
-
-                if (cacheDir != null) {
-                    val font = File.createTempFile("font", "ByVFT")
-
-                    val inputStream = activity?.contentResolver?.openInputStream(uri)
-
-                    if (inputStream != null) {
-                        copyStreamToFile(inputStream, font)
-                        previewContent?.typeface = Typeface.createFromFile(font)
-                        updateMetadataVisibility()
-                        return@runOnUiThread
-                    } else {
-                        Log.w(TAG, "changeFontFromUri: Failed to openInputStream to set font.")
-                        Log.w(TAG, "changeFontFromUri: Uri: $uri")
-                        Log.w(TAG, "changeFontFromUri: context?.cacheDir: $cacheDir")
-                        Log.w(TAG, "changeFontFromUri: activity == null? ${activity == null}")
-                        Log.w(
-                            TAG,
-                            "changeFontFromUri: activity?.contentResolver == null? ${activity?.contentResolver == null}"
-                        )
-                    }
-                } else {
-                    Log.w(TAG, "changeFontFromUri: Failed to set font.")
-                    Log.w(TAG, "changeFontFromUri: Uri: $uri")
-                }
             }
 
-            Toast.makeText(context, R.string.font_import_failed, Toast.LENGTH_LONG).show()
+            if (fontFile == null) {
+                Log.w(TAG, "changeFontFromUri: Failed to read font content.")
+                Log.w(TAG, "changeFontFromUri: Uri: $uri")
+                Log.w(TAG, "changeFontFromUri: Uri?.path: ${uri.path}")
+                Toast.makeText(context, R.string.font_import_failed, Toast.LENGTH_LONG).show()
+                return@runOnUiThread
+            }
+
+            try {
+                val typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val ttcIndex: EditTextPreference? = findPreference(Constants.PREF_TTC_INDEX)
+                    val ttcIndexValue = ttcIndex?.text?.toIntOrNull() ?: 0
+                    Typeface.Builder(fontFile).apply {
+                        setFontVariationSettings(fontVariationSettings.toFeatures())
+                        setTtcIndex(ttcIndexValue)
+                    }.build()
+                } else {
+                    Typeface.createFromFile(fontFile)
+                }
+                previewContent?.typeface = typeface
+                updateMetadataVisibility()
+            } catch (e: Exception) {
+                Log.w(TAG, "changeFontFromUri: Failed to set font.", e)
+                Toast.makeText(context, R.string.font_import_failed, Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -1369,12 +1383,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
         val ttcIndex = findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)
             ?.text?.toIntOrNull() ?: 0
 
-        // 解析字体文件
+        // 解析字体文件：先缓存为普通文件，兼容只支持 openInputStream 的 ContentProvider
         val metadata = try {
-            context.contentResolver.openFileDescriptor(Uri.parse(customFontUri), "r")?.use { pfd ->
-                java.io.FileInputStream(pfd.fileDescriptor).use { fis ->
-                    FontMetadataParser.parse(fis, ttcIndex)
-                }
+            val fontUri = Uri.parse(customFontUri)
+            val fontFile = cacheFontFromUri(fontUri)
+                ?: cachedFontFile(fontUri)
+                ?: error("cannot read font content from $customFontUri")
+            java.io.FileInputStream(fontFile).use { fis ->
+                FontMetadataParser.parse(fis, ttcIndex)
             }
         } catch (e: Exception) {
             Log.e(TAG, "showFontMetadataDialog: parse failed", e)
