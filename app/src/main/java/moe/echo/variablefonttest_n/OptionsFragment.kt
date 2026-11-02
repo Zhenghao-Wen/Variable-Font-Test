@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.text.TextUtils
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -1638,8 +1639,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
             }
             holder.rv.adapter = MetadataEntryAdapter(
                 entries = pages[position].second,
-                // ② 可变轴页（index=1）：数值字号缩小至 75%
-                valueTextScale = if (position == 1) 0.75f else 1f,
                 // ④ OT 特性页（index=2）：空值不显示"—"，直接隐藏
                 hideEmptyValue = position == 2,
                 pageType = pageType,
@@ -1653,8 +1652,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
     }
 
     /**
-     * 属性条目适配器：标题小字 + 值大字，点击复制。
-     * @param valueTextScale 值文本缩放比例（1f = 原始大小，0.75f = 缩小 25%）
+     * 属性条目适配器：标题 + 值，点击复制。
+     * 可变轴页特殊排版：轴名单独一行，最小值/最大值/默认值另起一行，
+     * 数值字号比轴名小约 2sp，两行均单行省略号截断。
      * @param hideEmptyValue 空值时是否隐藏 value 行（true = 隐藏，false = 显示"—"）
      * @param pageType 页面类型（用于长按处理）
      * @param axes 轴数据列表（用于长按获取轴信息）
@@ -1663,7 +1663,6 @@ class OptionsFragment : PreferenceFragmentCompat() {
      */
     private inner class MetadataEntryAdapter(
         private val entries: List<Pair<String, String>>,
-        private val valueTextScale: Float = 1f,
         private val hideEmptyValue: Boolean = false,
         private val pageType: PageType = PageType.OTHER,
         private val axes: List<FontMetadataParser.AxisInfo> = emptyList(),
@@ -1686,6 +1685,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
             val (label, value) = entries[position]
             holder.label.text = label
 
+            // ── 可变轴页排版：轴名单独一行 + 参数另起一行，均单行省略号截断 ──
+            val isAxisPage = pageType == PageType.AXIS
+            holder.label.isSingleLine = isAxisPage
+            holder.label.ellipsize = if (isAxisPage) TextUtils.TruncateAt.END else null
+            holder.value.isSingleLine = isAxisPage
+            holder.value.ellipsize = if (isAxisPage) TextUtils.TruncateAt.END else null
+
             // ── ④ 空值处理 ──
             if (value.isEmpty()) {
                 if (hideEmptyValue) {
@@ -1699,13 +1705,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 holder.value.text = value
             }
 
-            // ── ③ 字号缩放（可变轴页 75%）──
-            if (valueTextScale != 1f) {
-                val basePx = holder.value.textSize // 当前 px 值
-                holder.value.setTextSize(
-                    android.util.TypedValue.COMPLEX_UNIT_PX,
-                    basePx * valueTextScale
-                )
+            // ── ③ 字号：可变轴页参数行固定比轴名小约 2sp ──
+            if (isAxisPage) {
+                val density = holder.itemView.resources.displayMetrics.scaledDensity
+                val valueSizePx = (holder.label.textSize - 2f * density)
+                    .coerceAtLeast(10f)
+                holder.value.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, valueSizePx)
             }
 
             // ── ⑤ 复制逻辑：包含标题 ──
