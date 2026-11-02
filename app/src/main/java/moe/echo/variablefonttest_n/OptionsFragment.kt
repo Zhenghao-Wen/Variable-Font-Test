@@ -1707,9 +1707,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
             // ── ③ 字号：可变轴页参数行固定比轴名小约 2sp ──
             if (isAxisPage) {
-                val density = holder.itemView.resources.displayMetrics.scaledDensity
-                val valueSizePx = (holder.label.textSize - 2f * density)
-                    .coerceAtLeast(10f)
+                // 用 applyDimension 换算 2sp，避免直接读取已废弃的 DisplayMetrics.scaledDensity
+                val twoSpPx = android.util.TypedValue.applyDimension(
+                    android.util.TypedValue.COMPLEX_UNIT_SP,
+                    2f,
+                    holder.itemView.resources.displayMetrics
+                )
+                val valueSizePx = (holder.label.textSize - twoSpPx).coerceAtLeast(10f)
                 holder.value.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, valueSizePx)
             }
 
