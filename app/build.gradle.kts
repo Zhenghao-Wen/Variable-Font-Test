@@ -27,7 +27,7 @@ android {
         applicationId = "moe.echo.variablefonttest_n"
         minSdk = 21
         targetSdk = 35
-        versionCode = 23
+        versionCode = 24
         versionName = if (gitCommitHash.isEmpty()) baseVersionName else "$baseVersionName-$gitCommitHash"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
