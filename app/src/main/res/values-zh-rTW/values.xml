@@ -98,6 +98,14 @@
     <string name="font_metadata_manufacturer">製造商</string>
     <string name="font_metadata_designer">設計師</string>
     <string name="font_metadata_copyright">版權</string>
+    <string name="font_metadata_embedding">嵌入許可</string>
+    <string name="font_metadata_embedding_installable">可安裝</string>
+    <string name="font_metadata_embedding_restricted">受限</string>
+    <string name="font_metadata_embedding_preview_print">預覽與列印</string>
+    <string name="font_metadata_embedding_editable">可編輯</string>
+    <string name="font_metadata_embedding_no_subsetting">不允許子集化</string>
+    <string name="font_metadata_embedding_bitmap_only">僅點陣圖</string>
+    <string name="font_metadata_embedding_unknown">未知</string>
     <string name="external_font_permission_expired">外部開啟的字型權限已過期，已回退到預設字型</string>
     <string name="help">說明</string>
     <string name="font_metadata_help_message">短按：複製值。\n長按：快速新增自訂軸/特性。\n對於內建軸，長按將更新滑桿範圍。</string>

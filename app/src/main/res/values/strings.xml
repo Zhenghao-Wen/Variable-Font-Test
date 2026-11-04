@@ -102,6 +102,14 @@
     <string name="font_metadata_manufacturer">Manufacturer</string>
     <string name="font_metadata_designer">Designer</string>
     <string name="font_metadata_copyright">Copyright</string>
+    <string name="font_metadata_embedding">Embedding permissions</string>
+    <string name="font_metadata_embedding_installable">Installable</string>
+    <string name="font_metadata_embedding_restricted">Restricted</string>
+    <string name="font_metadata_embedding_preview_print">Preview &amp; Print</string>
+    <string name="font_metadata_embedding_editable">Editable</string>
+    <string name="font_metadata_embedding_no_subsetting">No subsetting</string>
+    <string name="font_metadata_embedding_bitmap_only">Bitmap only</string>
+    <string name="font_metadata_embedding_unknown">Unknown</string>
     <string name="external_font_permission_expired">External font permission expired, reverted to default font</string>
     <string name="help">Help</string>
     <string name="font_metadata_help_message">Short tap: Copy value.\nLong tap: Quick add custom axis/feature.\nFor built-in axes, long tap updates the slider range.</string>

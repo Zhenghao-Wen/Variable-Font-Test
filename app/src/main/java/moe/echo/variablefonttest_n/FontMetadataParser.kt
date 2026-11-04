@@ -31,10 +31,22 @@ object FontMetadataParser {
         val max: Float
     )
 
+    /** OS/2 表 fsType：字体嵌入权限（OpenType 规范）。 */
+    data class EmbeddingInfo(
+        val fsType: Int,
+        val installable: Boolean,
+        val restricted: Boolean,
+        val previewPrint: Boolean,
+        val editable: Boolean,
+        val noSubsetting: Boolean,
+        val bitmapOnly: Boolean
+    )
+
     data class Metadata(
         val nameInfo: NameInfo,
         val axes: List<AxisInfo>,
-        val features: List<String>
+        val features: List<String>,
+        val embedding: EmbeddingInfo? = null
     )
 
     // ──────────────────────────────────────────────
@@ -78,6 +90,7 @@ object FontMetadataParser {
         val features = mutableSetOf<String>()
         tables["GSUB"]?.let { parseFeatureList(buf, it.first, features) }
         tables["GPOS"]?.let { parseFeatureList(buf, it.first, features) }
+        val embedding = tables["OS/2"]?.let { parseOs2Embedding(buf, it.first) }
 
         return Metadata(
             nameInfo = NameInfo(
@@ -92,7 +105,8 @@ object FontMetadataParser {
                 copyright = nameMap[0] ?: ""
             ),
             axes = axes,
-            features = features.sorted()
+            features = features.sorted(),
+            embedding = embedding
         )
     }
 
@@ -172,6 +186,29 @@ object FontMetadataParser {
             }
         } catch (_: Exception) { }
         return axes
+    }
+
+    // ──────────────────────────────────────────────
+    //  OS/2 表（嵌入权限 fsType）
+    // ──────────────────────────────────────────────
+
+    private fun parseOs2Embedding(buf: ByteBuffer, offset: Int): EmbeddingInfo? {
+        return try {
+            if (offset + 10 > buf.limit()) return null
+            val fsType = buf.getShort(offset + 8).toInt() and 0xFFFF
+            val base = fsType and 0x000F
+            EmbeddingInfo(
+                fsType = fsType,
+                installable = base == 0,
+                restricted = (base and 0x0002) != 0,
+                previewPrint = (base and 0x0004) != 0,
+                editable = (base and 0x0008) != 0,
+                noSubsetting = (fsType and 0x0100) != 0,
+                bitmapOnly = (fsType and 0x0200) != 0
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // ──────────────────────────────────────────────

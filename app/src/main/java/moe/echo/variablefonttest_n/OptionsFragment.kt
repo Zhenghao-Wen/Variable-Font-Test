@@ -1394,6 +1394,26 @@ class OptionsFragment : PreferenceFragmentCompat() {
     //  字体元数据弹窗
     // ══════════════════════════════════════════════
 
+    /** 把 OS/2 fsType 转成可读的嵌入许可文案。 */
+    private fun formatEmbedding(info: FontMetadataParser.EmbeddingInfo): String {
+        val parts = mutableListOf<String>()
+        if (info.installable) {
+            parts += getString(R.string.font_metadata_embedding_installable)
+        } else {
+            if (info.restricted) parts += getString(R.string.font_metadata_embedding_restricted)
+            if (info.previewPrint) parts += getString(R.string.font_metadata_embedding_preview_print)
+            if (info.editable) parts += getString(R.string.font_metadata_embedding_editable)
+            if (parts.isEmpty()) parts += getString(R.string.font_metadata_embedding_unknown)
+        }
+        if (info.noSubsetting) {
+            parts += getString(R.string.font_metadata_embedding_no_subsetting)
+        }
+        if (info.bitmapOnly) {
+            parts += getString(R.string.font_metadata_embedding_bitmap_only)
+        }
+        return parts.joinToString(" · ")
+    }
+
     private fun showFontMetadataDialog() {
         val context = requireContext()
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -1450,13 +1470,16 @@ class OptionsFragment : PreferenceFragmentCompat() {
             getString(R.string.font_metadata_tab_features) to metadata.features.map { tag ->
                 tag to ""
             }.ifEmpty { listOf(getString(R.string.font_metadata_no_features) to "") },
-            // ④ 版本与版权
-            getString(R.string.font_metadata_tab_version) to listOf(
-                getString(R.string.font_metadata_version) to metadata.nameInfo.version,
-                getString(R.string.font_metadata_manufacturer) to metadata.nameInfo.manufacturer,
-                getString(R.string.font_metadata_designer) to metadata.nameInfo.designer,
-                getString(R.string.font_metadata_copyright) to metadata.nameInfo.copyright
-            )
+            // ④ 版本与版权（含 OS/2 fsType 嵌入许可）
+            getString(R.string.font_metadata_tab_version) to buildList {
+                add(getString(R.string.font_metadata_version) to metadata.nameInfo.version)
+                add(getString(R.string.font_metadata_manufacturer) to metadata.nameInfo.manufacturer)
+                add(getString(R.string.font_metadata_designer) to metadata.nameInfo.designer)
+                add(getString(R.string.font_metadata_copyright) to metadata.nameInfo.copyright)
+                metadata.embedding?.let {
+                    add(getString(R.string.font_metadata_embedding) to formatEmbedding(it))
+                }
+            }
         )
 
         // ── 内置轴范围更新逻辑 ──
