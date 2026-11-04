@@ -6,7 +6,7 @@ plugins {
 // ── App version name ────────────────────────────────────────────────────────
 // The base version name is still written here in code. The git short commit
 // hash is appended at build time, producing e.g. "4.2-1a2b3d4".
-val baseVersionName = "4.2"
+val baseVersionName = "4.3"
 val gitCommitHash: String = try {
     val process = ProcessBuilder("git", "rev-parse", "--short=7", "HEAD")
         .directory(rootDir)
