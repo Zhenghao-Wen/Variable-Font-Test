@@ -80,6 +80,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
     }
 
     private var fontMetadataPref: Preference? = null
+
+    /** 当前自定义字体 fvar 轴 tag → 字体自带轴名（系统字体 / 加载失败时为空）。 */
+    private var fontAxisNames: Map<String, String> = emptyMap()
     private val fontVariationSettings = mutableMapOf<String, String>()
     private val fontFeatureSettings = mutableMapOf<String, String>()
 
@@ -277,6 +280,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 preference.apply {
                     key = tagName
                     title = tagName
+                    if (typeValues[selectedItemPosition] == Constants.ADD_FEATURE_TYPE_SEEK_BAR &&
+                        preferences.key == Constants.PREF_CATEGORY_VARIATIONS
+                    ) {
+                        summary = fontAxisNames[tagName] ?: ""
+                    }
 
                     isPersistent = false
                 }
@@ -567,6 +575,26 @@ class OptionsFragment : PreferenceFragmentCompat() {
         }
     }
 
+    /**
+     * 把当前字体 fvar 表里的轴名（如 ROND → Roundness）同步到自定义可变轴条目的描述上。
+     * 字体没有对应轴时清空描述；系统字体没有 fvar 轴名，因此不显示描述。
+     */
+    private fun updateCustomAxisDescriptions() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
+        try {
+            val arr = org.json.JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val meta = arr.getJSONObject(i)
+                if (meta.optString("category") != "variations") continue
+                if (meta.optString("type") != Constants.ADD_FEATURE_TYPE_SEEK_BAR) continue
+                val key = meta.optString("key")
+                if (key.isEmpty()) continue
+                findPreference<Preference>(key)?.summary = fontAxisNames[key] ?: ""
+            }
+        } catch (_: Exception) { }
+    }
+
     /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
     private fun restoreCustomPrefs(applyVariation: (String) -> Unit) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -626,6 +654,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             valueScale = 1f
                             valueOffset = 0f
                             decimalPlaces = if (isIntegerStep) 0 else 1
+                            if (categoryKey == "variations") {
+                                summary = fontAxisNames[key] ?: ""
+                            }
                             isPersistent = false
                             setOnPreferenceChangeListener { _, newValue ->
                                 val v = newValue.toString().toFloatOrNull()
@@ -808,6 +839,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     ttcIndex?.isVisible = false
                     previewContent?.typeface = valueToTypeface[newValue]
                     setVariation(fontVariationSettings.toFeatures())
+                    // 系统字体没有 fvar 轴名描述
+                    fontAxisNames = emptyMap()
+                    updateCustomAxisDescriptions()
                     // 释放旧的自定义字体持久化权限
                     releaseCustomFontPermission()
                     updateMetadataVisibility(newValue.toString())
@@ -1344,6 +1378,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         preview?.fontVariationSettings = fontVariationSettings.toFeatures()
                     }
 
+                    fontAxisNames = emptyMap()
+                    updateCustomAxisDescriptions()
                     updateMetadataVisibility()
                     Toast.makeText(context, R.string.external_font_permission_expired, Toast.LENGTH_LONG).show()
                     return@runOnUiThread
@@ -1358,10 +1394,25 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 return@runOnUiThread
             }
 
+            val ttcIndexValue = findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)
+                ?.text?.toIntOrNull() ?: 0
+
+            // 解析该字体的 fvar 轴名，用于自定义可变轴的描述（系统字体不支持）
+            fontAxisNames = try {
+                java.io.FileInputStream(fontFile).use { fis ->
+                    FontMetadataParser.parse(fis, ttcIndexValue)
+                        .axes
+                        .filter { it.name.isNotBlank() && it.name != it.tag }
+                        .associate { it.tag to it.name }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "changeFontFromUri: failed to parse axis names", e)
+                emptyMap()
+            }
+            updateCustomAxisDescriptions()
+
             try {
                 val typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val ttcIndex: EditTextPreference? = findPreference(Constants.PREF_TTC_INDEX)
-                    val ttcIndexValue = ttcIndex?.text?.toIntOrNull() ?: 0
                     Typeface.Builder(fontFile).apply {
                         setFontVariationSettings(fontVariationSettings.toFeatures())
                         setTtcIndex(ttcIndexValue)
