@@ -1530,6 +1530,40 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 metadata.embedding?.let {
                     add(getString(R.string.font_metadata_embedding) to formatEmbedding(it))
                 }
+            },
+            // ⑤ 度量（head / hhea / OS/2 / post，取 default master / regular 的数值）
+            getString(R.string.font_metadata_tab_metrics) to run {
+                val m = metadata.metrics
+                listOf(
+                    getString(R.string.font_metadata_units_per_em) to (m?.unitsPerEm?.toString() ?: ""),
+                    getString(R.string.font_metadata_ascender) to (m?.ascender?.toString() ?: ""),
+                    getString(R.string.font_metadata_descender) to (m?.descender?.toString() ?: ""),
+                    getString(R.string.font_metadata_line_gap) to (m?.lineGap?.toString() ?: ""),
+                    getString(R.string.font_metadata_typo_ascender) to (m?.typoAscender?.toString() ?: ""),
+                    getString(R.string.font_metadata_typo_descender) to (m?.typoDescender?.toString() ?: ""),
+                    getString(R.string.font_metadata_typo_line_gap) to (m?.typoLineGap?.toString() ?: ""),
+                    getString(R.string.font_metadata_win_ascent) to (m?.winAscent?.toString() ?: ""),
+                    getString(R.string.font_metadata_win_descent) to (m?.winDescent?.toString() ?: ""),
+                    getString(R.string.font_metadata_cap_height) to (m?.capHeight?.toString() ?: ""),
+                    getString(R.string.font_metadata_x_height) to (m?.xHeight?.toString() ?: ""),
+                    getString(R.string.font_metadata_caret_offset) to (m?.caretOffset?.toString() ?: ""),
+                    getString(R.string.font_metadata_caret_slope) to
+                        (m?.caretSlopeDegrees?.let {
+                            java.lang.String.format(java.util.Locale.US, "%.1f", it)
+                        } ?: ""),
+                    getString(R.string.font_metadata_strikeout_position) to (m?.strikeoutPosition?.toString() ?: ""),
+                    getString(R.string.font_metadata_strikeout_thickness) to (m?.strikeoutSize?.toString() ?: ""),
+                    getString(R.string.font_metadata_underline_position) to (m?.underlinePosition?.toString() ?: ""),
+                    getString(R.string.font_metadata_underline_thickness) to (m?.underlineThickness?.toString() ?: ""),
+                    getString(R.string.font_metadata_subscript_x_offset) to (m?.subscriptXOffset?.toString() ?: ""),
+                    getString(R.string.font_metadata_subscript_x_size) to (m?.subscriptXSize?.toString() ?: ""),
+                    getString(R.string.font_metadata_subscript_y_offset) to (m?.subscriptYOffset?.toString() ?: ""),
+                    getString(R.string.font_metadata_subscript_y_size) to (m?.subscriptYSize?.toString() ?: ""),
+                    getString(R.string.font_metadata_superscript_x_offset) to (m?.superscriptXOffset?.toString() ?: ""),
+                    getString(R.string.font_metadata_superscript_x_size) to (m?.superscriptXSize?.toString() ?: ""),
+                    getString(R.string.font_metadata_superscript_y_offset) to (m?.superscriptYOffset?.toString() ?: ""),
+                    getString(R.string.font_metadata_superscript_y_size) to (m?.superscriptYSize?.toString() ?: "")
+                )
             }
         )
 

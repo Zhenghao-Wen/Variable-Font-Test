@@ -3,6 +3,7 @@ package moe.echo.variablefonttest_n
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.atan2
 
 /**
  * 轻量级 TTF / OTF / TTC 字体元数据解析器。
@@ -42,11 +43,41 @@ object FontMetadataParser {
         val bitmapOnly: Boolean
     )
 
+    /** 字体度量（head/hhea/OS/2/post，default master / regular 的取值）。 */
+    data class MetricsInfo(
+        val unitsPerEm: Int? = null,
+        val ascender: Int? = null,
+        val descender: Int? = null,
+        val lineGap: Int? = null,
+        val typoAscender: Int? = null,
+        val typoDescender: Int? = null,
+        val typoLineGap: Int? = null,
+        val winAscent: Int? = null,
+        val winDescent: Int? = null,
+        val capHeight: Int? = null,
+        val xHeight: Int? = null,
+        val caretOffset: Int? = null,
+        val caretSlopeDegrees: Float? = null,
+        val strikeoutPosition: Int? = null,
+        val strikeoutSize: Int? = null,
+        val underlinePosition: Int? = null,
+        val underlineThickness: Int? = null,
+        val subscriptXOffset: Int? = null,
+        val subscriptXSize: Int? = null,
+        val subscriptYOffset: Int? = null,
+        val subscriptYSize: Int? = null,
+        val superscriptXOffset: Int? = null,
+        val superscriptXSize: Int? = null,
+        val superscriptYOffset: Int? = null,
+        val superscriptYSize: Int? = null
+    )
+
     data class Metadata(
         val nameInfo: NameInfo,
         val axes: List<AxisInfo>,
         val features: List<String>,
-        val embedding: EmbeddingInfo? = null
+        val embedding: EmbeddingInfo? = null,
+        val metrics: MetricsInfo? = null
     )
 
     // ──────────────────────────────────────────────
@@ -91,6 +122,13 @@ object FontMetadataParser {
         tables["GSUB"]?.let { parseFeatureList(buf, it.first, features) }
         tables["GPOS"]?.let { parseFeatureList(buf, it.first, features) }
         val embedding = tables["OS/2"]?.let { parseOs2Embedding(buf, it.first) }
+        val metrics = parseMetrics(
+            buf,
+            tables["head"]?.first,
+            tables["hhea"]?.first,
+            tables["OS/2"]?.first,
+            tables["post"]?.first
+        )
 
         return Metadata(
             nameInfo = NameInfo(
@@ -106,7 +144,8 @@ object FontMetadataParser {
             ),
             axes = axes,
             features = features.sorted(),
-            embedding = embedding
+            embedding = embedding,
+            metrics = metrics
         )
     }
 
@@ -186,6 +225,63 @@ object FontMetadataParser {
             }
         } catch (_: Exception) { }
         return axes
+    }
+
+    // ──────────────────────────────────────────────
+    //  head / hhea / OS/2 / post 度量
+    // ──────────────────────────────────────────────
+
+    private fun readU16At(buf: ByteBuffer, offset: Int): Int? =
+        if (offset >= 0 && offset + 2 <= buf.limit()) buf.getShort(offset).toInt() and 0xFFFF else null
+
+    private fun readS16At(buf: ByteBuffer, offset: Int): Int? =
+        if (offset >= 0 && offset + 2 <= buf.limit()) buf.getShort(offset).toInt() else null
+
+    private fun parseMetrics(
+        buf: ByteBuffer,
+        headOffset: Int?,
+        hheaOffset: Int?,
+        os2Offset: Int?,
+        postOffset: Int?
+    ): MetricsInfo? {
+        if (headOffset == null && hheaOffset == null && os2Offset == null && postOffset == null) {
+            return null
+        }
+        val os2Version = os2Offset?.let { readU16At(buf, it) }
+        val caretRise = hheaOffset?.let { readS16At(buf, it + 18) }
+        val caretRun = hheaOffset?.let { readS16At(buf, it + 20) }
+        val caretSlope = if (caretRise != null && caretRun != null && (caretRise != 0 || caretRun != 0)) {
+            Math.toDegrees(atan2(caretRun.toDouble(), caretRise.toDouble())).toFloat()
+        } else {
+            null
+        }
+        return MetricsInfo(
+            unitsPerEm = headOffset?.let { readU16At(buf, it + 18) },
+            ascender = hheaOffset?.let { readS16At(buf, it + 4) },
+            descender = hheaOffset?.let { readS16At(buf, it + 6) },
+            lineGap = hheaOffset?.let { readS16At(buf, it + 8) },
+            typoAscender = os2Offset?.let { readS16At(buf, it + 68) },
+            typoDescender = os2Offset?.let { readS16At(buf, it + 70) },
+            typoLineGap = os2Offset?.let { readS16At(buf, it + 72) },
+            winAscent = os2Offset?.let { readU16At(buf, it + 74) },
+            winDescent = os2Offset?.let { readU16At(buf, it + 76) },
+            capHeight = if (os2Version != null && os2Version >= 2) os2Offset?.let { readS16At(buf, it + 88) } else null,
+            xHeight = if (os2Version != null && os2Version >= 2) os2Offset?.let { readS16At(buf, it + 86) } else null,
+            caretOffset = hheaOffset?.let { readS16At(buf, it + 22) },
+            caretSlopeDegrees = caretSlope,
+            strikeoutPosition = os2Offset?.let { readS16At(buf, it + 28) },
+            strikeoutSize = os2Offset?.let { readS16At(buf, it + 26) },
+            underlinePosition = postOffset?.let { readS16At(buf, it + 8) },
+            underlineThickness = postOffset?.let { readS16At(buf, it + 10) },
+            subscriptXOffset = os2Offset?.let { readS16At(buf, it + 14) },
+            subscriptXSize = os2Offset?.let { readS16At(buf, it + 10) },
+            subscriptYOffset = os2Offset?.let { readS16At(buf, it + 16) },
+            subscriptYSize = os2Offset?.let { readS16At(buf, it + 12) },
+            superscriptXOffset = os2Offset?.let { readS16At(buf, it + 22) },
+            superscriptXSize = os2Offset?.let { readS16At(buf, it + 18) },
+            superscriptYOffset = os2Offset?.let { readS16At(buf, it + 24) },
+            superscriptYSize = os2Offset?.let { readS16At(buf, it + 20) }
+        )
     }
 
     // ──────────────────────────────────────────────
