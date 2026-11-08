@@ -21,6 +21,16 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             DynamicColors.applyToActivityIfAvailable(this)
+            // DynamicColors.isDynamicColorAvailable() 只认 Google/Samsung 等白名单厂商，
+            // HarmonyOS 等 AOSP 12 衍生系统会被误判为不支持，导致全应用退回 MD3 Baseline。
+            // 这些系统实际提供 system_accent1_* 资源（Switch 的 DynamicColors overlay 已验证），
+            // 因此对未被 Material 自动识别的设备直接应用同一个动态色 overlay。
+            if (!DynamicColors.isDynamicColorAvailable()) {
+                theme.applyStyle(
+                    com.google.android.material.R.style.ThemeOverlay_Material3_DynamicColors_DayNight,
+                    true
+                )
+            }
         }
 
         super.onCreate(savedInstanceState)

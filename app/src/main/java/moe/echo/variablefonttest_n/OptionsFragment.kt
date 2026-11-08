@@ -528,11 +528,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
         )
         val heightPx = (1 * resources.displayMetrics.density).toInt()  // 1dp，与库默认一致
 
-        // 移除库默认 DividerDecoration（按类名识别）
-        for (i in recyclerView.itemDecorationCount - 1 downTo 0) {
-            if (recyclerView.getItemDecorationAt(i).javaClass.name.contains("DividerDecoration")) {
-                recyclerView.removeItemDecorationAt(i)
-            }
+        // 不能按类名识别库默认 DividerDecoration：R8 会重命名该类，
+        // r8 包里名字匹配失败，默认分隔线未移除，最终与自定义 MD3 分隔线叠加成两条。
+        // PreferenceFragmentCompat 只挂载分隔线装饰，直接清空后再加入自己的即可。
+        while (recyclerView.itemDecorationCount > 0) {
+            recyclerView.removeItemDecorationAt(0)
         }
         recyclerView.addItemDecoration(Md3DividerDecoration(dividerColor, heightPx))
     }

@@ -75,9 +75,10 @@ class SliderPreference @JvmOverloads constructor(
 
     init {
         layoutResource = R.layout.preference_widget_slider
-        // MD3 Legacy 样式需要与旧 MD2 SeekBar 行完全对齐（无图标占位）；
-        // Expressive 保持 Material 3 偏好行的图标区留白。
-        isIconSpaceReserved = !isLegacySliderStyle()
+        // 两种 Slider 样式都必须保留图标区占位：
+        // 旧版 SeekBar 行同样有 56dp 图标区；若这里取消占位，标题、描述和滑块
+        // 会整体左移，丢失原有缩进。Legacy 只跳过轨道两端的 margin 补偿。
+        isIconSpaceReserved = true
     }
 
     /** 当前主题下的 Slider 样式是否为 MD3 Legacy（Widget.Material3.Slider.Legacy）。 */
@@ -87,7 +88,8 @@ class SliderPreference @JvmOverloads constructor(
         )
         val styleRes = attrs.getResourceId(0, 0)
         attrs.recycle()
-        styleRes != 0 && context.resources.getResourceEntryName(styleRes) == "Widget.Material3.Slider.Legacy"
+        // 直接比较资源 ID，避免依赖可能被资源压缩/混淆影响的资源名字符串。
+        styleRes == com.google.android.material.R.style.Widget_Material3_Slider_Legacy
     } catch (_: Exception) {
         false
     }
