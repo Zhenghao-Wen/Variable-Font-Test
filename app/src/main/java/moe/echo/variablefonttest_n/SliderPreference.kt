@@ -71,6 +71,8 @@ class SliderPreference @JvmOverloads constructor(
         const val WGHT_ASSEMBLY_SHIFT_DP = 16f
         /** 非 wght/自定义右端右移量：右端留距 = W − 此值（W 为数值区宽度） */
         const val OTHER_RIGHT_SHIFT_DP = 16f
+        /** MD3 Legacy 样式仅左侧额外外扩 10dp，右侧保持不变 */
+        const val LEGACY_LEFT_SHIFT_DP = 10f
     }
 
     init {
@@ -145,10 +147,8 @@ class SliderPreference @JvmOverloads constructor(
             if (showTicks) TICK_VISIBILITY_AUTO_LIMIT else TICK_VISIBILITY_HIDDEN
         )
 
-        // ── 轨道两端对齐补偿（仅 MD3 Expressive 样式需要）──
-        // MD3 Legacy 样式目标是与 MD2 SeekBar 度量对齐，直接使用其默认布局即可，
-        // 不再做额外负 margin 补偿，避免与 SeekBar 观感产生偏差。
-        //
+        // ── 轨道两端对齐补偿 ──
+        // Legacy：只把左侧 margin 外扩 10dp，右侧保持不动。
         // Expressive：负 margin 抵消 trackSidePadding 内缩——左缘对齐标题左缘、
         // wght 右缘贴合数值区、其余右缘回退一个 inset。
         // 必须用公开的 getTrackSidePadding()，不能反射读取私有字段 trackSidePadding：
@@ -156,7 +156,16 @@ class SliderPreference @JvmOverloads constructor(
         // 表现为 R8 包 Slider 两端比非 R8 包内缩（约 4dp）。
         val isLegacyStyle = isLegacySliderStyle()
         val inset = if (isLegacyStyle) 0 else s.trackSidePadding
-        if (inset > 0) {
+        if (isLegacyStyle) {
+            // Legacy 只把左侧 margin 向外扩 10dp：负 margin 会同时增加 weight 宽度，
+            // 因此左缘左移 10dp，而右缘和右侧数值区保持不动。
+            val density = s.resources.displayMetrics.density
+            val legacyLeftShiftPx = (LEGACY_LEFT_SHIFT_DP * density).toInt()
+            (s.layoutParams as? android.widget.LinearLayout.LayoutParams)?.let { lp ->
+                lp.marginStart = -legacyLeftShiftPx
+                s.layoutParams = lp
+            }
+        } else if (inset > 0) {
             val density = s.resources.displayMetrics.density
             val leftShiftPx = (LEFT_SHIFT_DP * density).toInt()
             val otherRightShiftPx = (OTHER_RIGHT_SHIFT_DP * density).toInt()
