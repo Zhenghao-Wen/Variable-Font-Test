@@ -284,6 +284,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         preferences.key == Constants.PREF_CATEGORY_VARIATIONS
                     ) {
                         summary = fontAxisNames[tagName] ?: ""
+                    } else if (preferences.key == Constants.PREF_CATEGORY_FONT_FEATURES) {
+                        OtFeatureNames.friendlyName(context, tagName)?.let { summary = it }
                     }
 
                     isPersistent = false
@@ -627,6 +629,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                         SwitchPreferenceCompat(requireContext()).apply {
                             this.key = key
                             title = key
+                            if (categoryKey != "variations") {
+                                OtFeatureNames.friendlyName(requireContext(), key)?.let { summary = it }
+                            }
                             isPersistent = false
                             isChecked = fontFeatureSettings[key] == "1"
                             setOnPreferenceChangeListener { _, _ ->
@@ -656,6 +661,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             decimalPlaces = if (isIntegerStep) 0 else 1
                             if (categoryKey == "variations") {
                                 summary = fontAxisNames[key] ?: ""
+                            } else {
+                                OtFeatureNames.friendlyName(requireContext(), key)?.let { summary = it }
                             }
                             isPersistent = false
                             setOnPreferenceChangeListener { _, newValue ->
@@ -673,6 +680,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             this.key = key
                             title = key
                             dialogTitle = key
+                            if (categoryKey != "variations") {
+                                OtFeatureNames.friendlyName(requireContext(), key)?.let { summary = it }
+                            }
                             isPersistent = false
                             text = fontVariationSettings[key] ?: fontFeatureSettings[key]
                             setOnPreferenceChangeListener { _, newValue ->
@@ -1517,9 +1527,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     append("  ${getString(R.string.font_metadata_axis_max)}: ${formatAxisValue(axis.max)}")
                 }
             }.ifEmpty { listOf(getString(R.string.font_metadata_no_axes) to "") },
-            // ③ OT 特性
+            // ③ OT 特性（每项下方追加友好名称；表中没有的 tag 不显示）
             getString(R.string.font_metadata_tab_features) to metadata.features.map { tag ->
-                tag to ""
+                tag to (OtFeatureNames.friendlyName(context, tag) ?: "")
             }.ifEmpty { listOf(getString(R.string.font_metadata_no_features) to "") },
             // ④ 版本与版权（含 OS/2 fsType 嵌入许可）
             getString(R.string.font_metadata_tab_version) to buildList {
