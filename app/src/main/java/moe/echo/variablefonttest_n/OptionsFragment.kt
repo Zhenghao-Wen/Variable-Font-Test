@@ -83,6 +83,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
     /** 当前自定义字体 fvar 轴 tag → 字体自带轴名（系统字体 / 加载失败时为空）。 */
     private var fontAxisNames: Map<String, String> = emptyMap()
+
+    /** 当前自定义字体 ssXX / cvXX 的 FeatureParams 自带名称（系统字体 / 加载失败时为空）。 */
+    private var fontFeatureNames: Map<String, String> = emptyMap()
     private val fontVariationSettings = mutableMapOf<String, String>()
     private val fontFeatureSettings = mutableMapOf<String, String>()
 
@@ -285,7 +288,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     ) {
                         summary = fontAxisNames[tagName] ?: ""
                     } else if (preferences.key == Constants.PREF_CATEGORY_FONT_FEATURES) {
-                        OtFeatureNames.friendlyName(context, tagName)?.let { summary = it }
+                        featureDisplayName(tagName)?.let { summary = it }
                     }
 
                     isPersistent = false
@@ -597,6 +600,26 @@ class OptionsFragment : PreferenceFragmentCompat() {
         } catch (_: Exception) { }
     }
 
+    /** 特性友好名：优先字体自带（ssXX/cvXX FeatureParams），否则用内置对照表。 */
+    private fun featureDisplayName(key: String): String? =
+        fontFeatureNames[key] ?: OtFeatureNames.friendlyName(requireContext(), key)
+
+    /** 字体切换后刷新自定义特性条目的描述（ssXX / cvXX 可能需要改用字体自带名称）。 */
+    private fun updateCustomFeatureDescriptions() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val raw = prefs.getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
+        try {
+            val arr = org.json.JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val meta = arr.getJSONObject(i)
+                if (meta.optString("category") == "variations") continue
+                val key = meta.optString("key")
+                if (key.isEmpty()) continue
+                findPreference<Preference>(key)?.summary = featureDisplayName(key) ?: ""
+            }
+        } catch (_: Exception) { }
+    }
+
     /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
     private fun restoreCustomPrefs(applyVariation: (String) -> Unit) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -630,7 +653,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             this.key = key
                             title = key
                             if (categoryKey != "variations") {
-                                OtFeatureNames.friendlyName(requireContext(), key)?.let { summary = it }
+                                featureDisplayName(key)?.let { summary = it }
                             }
                             isPersistent = false
                             isChecked = fontFeatureSettings[key] == "1"
@@ -662,7 +685,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             if (categoryKey == "variations") {
                                 summary = fontAxisNames[key] ?: ""
                             } else {
-                                OtFeatureNames.friendlyName(requireContext(), key)?.let { summary = it }
+                                featureDisplayName(key)?.let { summary = it }
                             }
                             isPersistent = false
                             setOnPreferenceChangeListener { _, newValue ->
@@ -681,7 +704,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
                             title = key
                             dialogTitle = key
                             if (categoryKey != "variations") {
-                                OtFeatureNames.friendlyName(requireContext(), key)?.let { summary = it }
+                                featureDisplayName(key)?.let { summary = it }
                             }
                             isPersistent = false
                             text = fontVariationSettings[key] ?: fontFeatureSettings[key]
@@ -849,9 +872,11 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     ttcIndex?.isVisible = false
                     previewContent?.typeface = valueToTypeface[newValue]
                     setVariation(fontVariationSettings.toFeatures())
-                    // 系统字体没有 fvar 轴名描述
+                    // 系统字体没有 fvar 轴名 / FeatureParams 名称
                     fontAxisNames = emptyMap()
+                    fontFeatureNames = emptyMap()
                     updateCustomAxisDescriptions()
+                    updateCustomFeatureDescriptions()
                     // 释放旧的自定义字体持久化权限
                     releaseCustomFontPermission()
                     updateMetadataVisibility(newValue.toString())
@@ -1389,7 +1414,9 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     }
 
                     fontAxisNames = emptyMap()
+                    fontFeatureNames = emptyMap()
                     updateCustomAxisDescriptions()
+                    updateCustomFeatureDescriptions()
                     updateMetadataVisibility()
                     Toast.makeText(context, R.string.external_font_permission_expired, Toast.LENGTH_LONG).show()
                     return@runOnUiThread
@@ -1407,19 +1434,22 @@ class OptionsFragment : PreferenceFragmentCompat() {
             val ttcIndexValue = findPreference<EditTextPreference>(Constants.PREF_TTC_INDEX)
                 ?.text?.toIntOrNull() ?: 0
 
-            // 解析该字体的 fvar 轴名，用于自定义可变轴的描述（系统字体不支持）
-            fontAxisNames = try {
+            // 解析该字体的 fvar 轴名与 ssXX/cvXX 自带名称，用于自定义参数描述
+            val fontMetadata = try {
                 java.io.FileInputStream(fontFile).use { fis ->
                     FontMetadataParser.parse(fis, ttcIndexValue)
-                        .axes
-                        .filter { it.name.isNotBlank() && it.name != it.tag }
-                        .associate { it.tag to it.name }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "changeFontFromUri: failed to parse axis names", e)
-                emptyMap()
+                Log.w(TAG, "changeFontFromUri: failed to parse font metadata", e)
+                null
             }
+            fontAxisNames = fontMetadata?.axes
+                ?.filter { it.name.isNotBlank() && it.name != it.tag }
+                ?.associate { it.tag to it.name }
+                ?: emptyMap()
+            fontFeatureNames = fontMetadata?.featureNames ?: emptyMap()
             updateCustomAxisDescriptions()
+            updateCustomFeatureDescriptions()
 
             try {
                 val typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1529,7 +1559,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
             }.ifEmpty { listOf(getString(R.string.font_metadata_no_axes) to "") },
             // ③ OT 特性（每项下方追加友好名称；表中没有的 tag 不显示）
             getString(R.string.font_metadata_tab_features) to metadata.features.map { tag ->
-                tag to (OtFeatureNames.friendlyName(context, tag) ?: "")
+                tag to (metadata.featureNames[tag] ?: OtFeatureNames.friendlyName(context, tag) ?: "")
             }.ifEmpty { listOf(getString(R.string.font_metadata_no_features) to "") },
             // ④ 版本与版权（含 OS/2 fsType 嵌入许可）
             getString(R.string.font_metadata_tab_version) to buildList {

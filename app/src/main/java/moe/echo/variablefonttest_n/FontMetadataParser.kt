@@ -77,7 +77,9 @@ object FontMetadataParser {
         val axes: List<AxisInfo>,
         val features: List<String>,
         val embedding: EmbeddingInfo? = null,
-        val metrics: MetricsInfo? = null
+        val metrics: MetricsInfo? = null,
+        /** ssXX / cvXX 在 GSUB/GPOS FeatureParams 中自带 UI 名称（tag → name）。 */
+        val featureNames: Map<String, String> = emptyMap()
     )
 
     // ──────────────────────────────────────────────
@@ -121,6 +123,9 @@ object FontMetadataParser {
         val features = mutableSetOf<String>()
         tables["GSUB"]?.let { parseFeatureList(buf, it.first, features) }
         tables["GPOS"]?.let { parseFeatureList(buf, it.first, features) }
+        val featureNames = mutableMapOf<String, String>()
+        tables["GSUB"]?.let { parseFeatureNames(buf, it.first, nameMap, featureNames) }
+        tables["GPOS"]?.let { parseFeatureNames(buf, it.first, nameMap, featureNames) }
         val embedding = tables["OS/2"]?.let { parseOs2Embedding(buf, it.first) }
         val metrics = parseMetrics(
             buf,
@@ -145,7 +150,8 @@ object FontMetadataParser {
             axes = axes,
             features = features.sorted(),
             embedding = embedding,
-            metrics = metrics
+            metrics = metrics,
+            featureNames = featureNames
         )
     }
 
@@ -324,6 +330,46 @@ object FontMetadataParser {
                 out.add(readTag(buf, rec))
             }
         } catch (_: Exception) { }
+    }
+
+    /**
+     * 读取 ssXX / cvXX 的 FeatureParams UINameID，并映射到 name 表。
+     * 仅这两类特性的 FeatureParams 布局在 +2 处带有 UI 名称 ID：
+     * - ssXX: version(2) + UINameID(2)
+     * - cvXX: format(2) + featUILabelNameID(2)
+     */
+    private fun parseFeatureNames(
+        buf: ByteBuffer,
+        tableOffset: Int,
+        nameMap: Map<Int, String>,
+        out: MutableMap<String, String>
+    ) {
+        try {
+            val flOff = tableOffset + (buf.getShort(tableOffset + 6).toInt() and 0xFFFF)
+            if (flOff + 2 > buf.limit()) return
+            val count = buf.getShort(flOff).toInt() and 0xFFFF
+            for (i in 0 until count) {
+                val rec = flOff + 2 + i * 6
+                if (rec + 6 > buf.limit()) break
+                val tag = readTag(buf, rec)
+                if (!isSsvCvTag(tag)) continue
+                val feature = flOff + (buf.getShort(rec + 4).toInt() and 0xFFFF)
+                if (feature + 4 > buf.limit()) continue
+                val paramsOff = buf.getShort(feature).toInt() and 0xFFFF
+                if (paramsOff == 0) continue
+                val params = feature + paramsOff
+                if (params + 4 > buf.limit()) continue
+                val nameId = buf.getShort(params + 2).toInt() and 0xFFFF
+                val name = nameMap[nameId]?.trim()
+                if (!name.isNullOrEmpty()) out[tag] = name
+            }
+        } catch (_: Exception) { }
+    }
+
+    private fun isSsvCvTag(tag: String): Boolean {
+        if (tag.length != 4) return false
+        if (!tag.startsWith("ss") && !tag.startsWith("cv")) return false
+        return tag[2].isDigit() && tag[3].isDigit()
     }
 
     // ──────────────────────────────────────────────
