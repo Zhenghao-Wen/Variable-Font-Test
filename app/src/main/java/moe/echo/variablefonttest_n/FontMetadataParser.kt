@@ -261,6 +261,17 @@ object FontMetadataParser {
         } else {
             null
         }
+        val hasV2Metrics = os2Version != null && os2Version >= 2
+        val capHeight = if (hasV2Metrics && os2Offset != null) {
+            readS16At(buf, os2Offset + 88)
+        } else {
+            null
+        }
+        val xHeight = if (hasV2Metrics && os2Offset != null) {
+            readS16At(buf, os2Offset + 86)
+        } else {
+            null
+        }
         return MetricsInfo(
             unitsPerEm = headOffset?.let { readU16At(buf, it + 18) },
             ascender = hheaOffset?.let { readS16At(buf, it + 4) },
@@ -271,8 +282,8 @@ object FontMetadataParser {
             typoLineGap = os2Offset?.let { readS16At(buf, it + 72) },
             winAscent = os2Offset?.let { readU16At(buf, it + 74) },
             winDescent = os2Offset?.let { readU16At(buf, it + 76) },
-            capHeight = if (os2Version != null && os2Version >= 2) os2Offset?.let { readS16At(buf, it + 88) } else null,
-            xHeight = if (os2Version != null && os2Version >= 2) os2Offset?.let { readS16At(buf, it + 86) } else null,
+            capHeight = capHeight,
+            xHeight = xHeight,
             caretOffset = hheaOffset?.let { readS16At(buf, it + 22) },
             caretSlopeDegrees = caretSlope,
             strikeoutPosition = os2Offset?.let { readS16At(buf, it + 28) },
