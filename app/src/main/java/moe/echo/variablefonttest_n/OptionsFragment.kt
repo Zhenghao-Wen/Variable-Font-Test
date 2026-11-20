@@ -1029,12 +1029,13 @@ class OptionsFragment : PreferenceFragmentCompat() {
             labelOffset: Float,
             decimals: Int,
             showValue: Boolean,
+            step: Float = 1f,
             handler: (Any?) -> Boolean
         ) {
             pref ?: return
             pref.valueFrom = from
             pref.valueTo = to
-            pref.stepSize = 1f
+            pref.stepSize = step
             val uiValue = fontVariationSettings[axisKey]?.toFloatOrNull()
                 ?.let { it * uiScale + uiOffset } ?: defaultValue
             pref.sliderValue = uiValue.coerceIn(from, to)
@@ -1052,7 +1053,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
             from = 0f, to = 10f, defaultValue = 0f,
             uiScale = 10f, uiOffset = 0f,
             labelScale = 0.1f, labelOffset = 0f,
-            decimals = 1, showValue = false, handler = italHandler
+            // ital 轴步进 0.01（UI 数值 ×10，故 step=0.1；显示保留两位小数）
+            decimals = 2, showValue = false, step = 0.1f, handler = italHandler
         )
         bindAxis(
             opsz, Constants.VARIATION_AXIS_OPTICAL_SIZE,

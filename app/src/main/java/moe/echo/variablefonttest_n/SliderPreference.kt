@@ -71,8 +71,8 @@ class SliderPreference @JvmOverloads constructor(
         const val WGHT_ASSEMBLY_SHIFT_DP = 16f
         /** 非 wght/自定义右端右移量：右端留距 = W − 此值（W 为数值区宽度） */
         const val OTHER_RIGHT_SHIFT_DP = 16f
-        /** MD3 Legacy 样式仅左侧额外外扩 10dp，右侧保持不变 */
-        const val LEGACY_LEFT_SHIFT_DP = 10f
+        /** MD3 Legacy 样式仅左侧额外外扩 12dp，右侧保持不变 */
+        const val LEGACY_LEFT_SHIFT_DP = 12f
     }
 
     init {
