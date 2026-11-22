@@ -1835,12 +1835,14 @@ class OptionsFragment : PreferenceFragmentCompat() {
             val (label, value) = entries[position]
             holder.label.text = label
 
-            // ── 可变轴页排版：轴名单独一行 + 参数另起一行，均单行省略号截断 ──
+            // ── 可变轴 / OT 特性页排版：标题单独一行，下方说明小字号并省略号截断 ──
             val isAxisPage = pageType == PageType.AXIS
-            holder.label.isSingleLine = isAxisPage
-            holder.label.ellipsize = if (isAxisPage) TextUtils.TruncateAt.END else null
-            holder.value.isSingleLine = isAxisPage
-            holder.value.ellipsize = if (isAxisPage) TextUtils.TruncateAt.END else null
+            val isFeaturePage = pageType == PageType.FEATURE
+            val isCompactPage = isAxisPage || isFeaturePage
+            holder.label.isSingleLine = isCompactPage
+            holder.label.ellipsize = if (isCompactPage) TextUtils.TruncateAt.END else null
+            holder.value.isSingleLine = isCompactPage
+            holder.value.ellipsize = if (isCompactPage) TextUtils.TruncateAt.END else null
 
             // ── ④ 空值处理 ──
             if (value.isEmpty()) {
@@ -1855,8 +1857,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 holder.value.text = value
             }
 
-            // ── ③ 字号：可变轴页参数行固定比轴名小约 2sp ──
-            if (isAxisPage) {
+            // ── ③ 字号：可变轴 / OT 特性的说明行固定比标题小约 2sp ──
+            if (isCompactPage) {
                 // 用 applyDimension 换算 2sp，避免直接读取已废弃的 DisplayMetrics.scaledDensity
                 val twoSpPx = android.util.TypedValue.applyDimension(
                     android.util.TypedValue.COMPLEX_UNIT_SP,
