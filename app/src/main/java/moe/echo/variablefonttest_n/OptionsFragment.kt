@@ -86,6 +86,15 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
     /** 当前自定义字体 ssXX / cvXX 的 FeatureParams 自带名称（系统字体 / 加载失败时为空）。 */
     private var fontFeatureNames: Map<String, String> = emptyMap()
+
+    /** 当前自定义字体支持的 fvar 轴 tag（小写；系统字体 / 解析失败时为空）。 */
+    private var fontAxisTags: Set<String> = emptySet()
+
+    /** 当前自定义字体支持的 GSUB/GPOS 特性 tag（小写；系统字体 / 解析失败时为空）。 */
+    private var fontFeatureTags: Set<String> = emptySet()
+
+    /** 当前是否正在使用自定义外部字体（系统字体为 false）。 */
+    private var customFontActive: Boolean = false
     private val fontVariationSettings = mutableMapOf<String, String>()
     private val fontFeatureSettings = mutableMapOf<String, String>()
 
@@ -323,7 +332,8 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     }
                 }
                 
-                // ── 6. 校验通过，关闭 Dialog ──
+                // ── 6. 按当前字体支持情况更新显隐，然后关闭 Dialog ──
+                applyFontSupportVisibility()
                 dialog.dismiss()
             }
         }
@@ -620,6 +630,85 @@ class OptionsFragment : PreferenceFragmentCompat() {
         } catch (_: Exception) { }
     }
 
+    /** 读取自定义参数记录：key → (category, type)。 */
+    private fun customPrefMetaEntries(): Map<String, Pair<String, String>> {
+        val result = mutableMapOf<String, Pair<String, String>>()
+        val raw = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            .getString(Constants.PREF_CUSTOM_PREFS_META, "[]") ?: "[]"
+        try {
+            val arr = org.json.JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val meta = arr.getJSONObject(i)
+                val key = meta.optString("key")
+                if (key.isEmpty()) continue
+                result[key] = meta.optString("category") to meta.optString("type")
+            }
+        } catch (_: Exception) { }
+        return result
+    }
+
+    /**
+     * 使用自定义外部字体时，隐藏当前字体不支持的滑块/开关（仅 isVisible，不删除记录）；
+     * 切换字体时重新判断；改用系统字体时恢复显示全部。
+     * 文本编辑模式下整组条目本来就隐藏，这里保持隐藏。
+     */
+    private fun applyFontSupportVisibility() {
+        val variationTextMode = findPreference<Preference>(Constants.PREF_VARIATION_EDITOR)?.isVisible == true
+        val featureTextMode = findPreference<Preference>(Constants.PREF_FEATURE_EDITOR)?.isVisible == true
+
+        fun applyVisibility(pref: Preference?, supported: Boolean, textMode: Boolean) {
+            pref ?: return
+            pref.isVisible = when {
+                textMode -> false
+                !customFontActive -> true
+                else -> supported
+            }
+        }
+
+        val builtinAxes = mapOf(
+            Constants.PREF_VARIATION_ITALIC to Constants.VARIATION_AXIS_ITALIC,
+            Constants.PREF_VARIATION_OPTICAL_SIZE to Constants.VARIATION_AXIS_OPTICAL_SIZE,
+            Constants.PREF_VARIATION_SLANT to Constants.VARIATION_AXIS_SLANT,
+            Constants.PREF_VARIATION_WIDTH to Constants.VARIATION_AXIS_WIDTH,
+            Constants.PREF_VARIATION_WEIGHT to Constants.VARIATION_AXIS_WEIGHT
+        )
+        builtinAxes.forEach { (prefKey, tag) ->
+            applyVisibility(
+                findPreference<Preference>(prefKey),
+                tag.lowercase() in fontAxisTags,
+                variationTextMode
+            )
+        }
+
+        val builtinFeatures = mapOf(
+            Constants.PREF_FEATURE_CHWS to Constants.FEATURE_CHWS,
+            Constants.PREF_FEATURE_HALT to Constants.FEATURE_HALT,
+            Constants.PREF_FEATURE_FRAC to Constants.FEATURE_FRAC
+        )
+        builtinFeatures.forEach { (prefKey, tag) ->
+            applyVisibility(
+                findPreference<Preference>(prefKey),
+                tag.lowercase() in fontFeatureTags,
+                featureTextMode
+            )
+        }
+
+        customPrefMetaEntries().forEach { (key, meta) ->
+            val category = meta.first
+            val type = meta.second
+            if (type != Constants.ADD_FEATURE_TYPE_SEEK_BAR &&
+                type != Constants.ADD_FEATURE_TYPE_SWITCH
+            ) {
+                return@forEach
+            }
+            applyVisibility(
+                findPreference<Preference>(key),
+                key.lowercase() in (if (category == "variations") fontAxisTags else fontFeatureTags),
+                if (category == "variations") variationTextMode else featureTextMode
+            )
+        }
+    }
+
     /** 从 SharedPreferences 恢复自定义参数 UI 控件 */
     private fun restoreCustomPrefs(applyVariation: (String) -> Unit) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -875,8 +964,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
                     // 系统字体没有 fvar 轴名 / FeatureParams 名称
                     fontAxisNames = emptyMap()
                     fontFeatureNames = emptyMap()
+                    fontAxisTags = emptySet()
+                    fontFeatureTags = emptySet()
+                    customFontActive = false
                     updateCustomAxisDescriptions()
                     updateCustomFeatureDescriptions()
+                    applyFontSupportVisibility()
                     // 释放旧的自定义字体持久化权限
                     releaseCustomFontPermission()
                     updateMetadataVisibility(newValue.toString())
@@ -1098,6 +1191,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
         // ── 恢复自定义参数 UI 控件 ──
         restoreCustomPrefs { settings -> setVariation(settings) }
+        applyFontSupportVisibility()
 
         variationEditor?.setOnPreferenceChangeListener { _, newValue ->
             try {
@@ -1166,6 +1260,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
                 isVisible = !isVisible
             }
+            applyFontSupportVisibility()
             true
         }
 
@@ -1270,6 +1365,7 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
                 isVisible = !isVisible
             }
+            applyFontSupportVisibility()
 
             true
         }
@@ -1417,8 +1513,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
 
                     fontAxisNames = emptyMap()
                     fontFeatureNames = emptyMap()
+                    fontAxisTags = emptySet()
+                    fontFeatureTags = emptySet()
+                    customFontActive = false
                     updateCustomAxisDescriptions()
                     updateCustomFeatureDescriptions()
+                    applyFontSupportVisibility()
                     updateMetadataVisibility()
                     Toast.makeText(context, R.string.external_font_permission_expired, Toast.LENGTH_LONG).show()
                     return@runOnUiThread
@@ -1450,8 +1550,12 @@ class OptionsFragment : PreferenceFragmentCompat() {
                 ?.associate { it.tag to it.name }
                 ?: emptyMap()
             fontFeatureNames = fontMetadata?.featureNames ?: emptyMap()
+            fontAxisTags = fontMetadata?.axes?.map { it.tag.lowercase() }?.toSet() ?: emptySet()
+            fontFeatureTags = fontMetadata?.features?.map { it.lowercase() }?.toSet() ?: emptySet()
+            customFontActive = fontMetadata != null
             updateCustomAxisDescriptions()
             updateCustomFeatureDescriptions()
+            applyFontSupportVisibility()
 
             try {
                 val typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
